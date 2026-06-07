@@ -17,6 +17,10 @@ copy .env.example .env
 - `POST /auth/register`
 - `POST /auth/login`
 - `GET /auth/me`
+- `POST /clients`
+- `GET /clients`
+- `PUT /clients/{client_id}`
+- `DELETE /clients/{client_id}`
 - `POST /sites`
 - `GET /sites`
 - `POST /sites/{site_id}/equipment`

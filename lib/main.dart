@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 void main() => runApp(const GreenSiteApp());
@@ -63,6 +64,9 @@ class AppState extends ChangeNotifier {
   final ApiClient api;
   String? token;
   String userName = 'Etudiant Demo';
+  bool syncing = false;
+  String syncStatus = 'Mode demo pret';
+  final List<ClientProfile> clients = [ClientProfile.demo()];
   final List<SiteProfile> sites = [SiteProfile.demo()];
   final List<EquipmentItem> equipment = EquipmentItem.demoItems();
   final List<SimulationRecord> simulations = [];
@@ -74,9 +78,11 @@ class AppState extends ChangeNotifier {
       final response = await api.login(email, password);
       token = response['access_token'] as String?;
       userName = response['user']?['full_name'] as String? ?? userName;
+      await syncFromApi();
     } catch (_) {
       token = 'offline-demo-token';
       userName = email.contains('@') ? email.split('@').first : userName;
+      syncStatus = 'Mode demo local';
     }
     notifyListeners();
   }
@@ -86,20 +92,167 @@ class AppState extends ChangeNotifier {
       final response = await api.register(name, email, password);
       token = response['access_token'] as String?;
       userName = response['user']?['full_name'] as String? ?? name;
+      await syncFromApi();
     } catch (_) {
       token = 'offline-demo-token';
       userName = name;
+      syncStatus = 'Mode demo local';
     }
     notifyListeners();
   }
 
-  void addSite(SiteProfile site) {
+  Future<void> syncFromApi() async {
+    if (token == null || token == 'offline-demo-token') return;
+    syncing = true;
+    syncStatus = 'Synchronisation API...';
+    notifyListeners();
+    try {
+      final remoteClients = await api.listClients(token!);
+      final remoteSites = await api.listSites(token!);
+      clients
+        ..clear()
+        ..addAll(remoteClients.map(ClientProfile.fromJson));
+      sites
+        ..clear()
+        ..addAll(remoteSites.map(SiteProfile.fromJson));
+      if (sites.isEmpty) {
+        sites.add(SiteProfile.demo());
+      }
+      if (clients.isEmpty) {
+        clients.add(ClientProfile.demo());
+      }
+      syncStatus = 'Connecte a API Render';
+    } catch (_) {
+      syncStatus = 'API indisponible, donnees locales conservees';
+    } finally {
+      syncing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> addClient(ClientProfile client) async {
+    if (token != null && token != 'offline-demo-token') {
+      try {
+        final created = await api.createClient(token!, client);
+        clients.insert(0, ClientProfile.fromJson(created));
+        notifyListeners();
+        return;
+      } catch (_) {
+        syncStatus = 'Client ajoute localement';
+      }
+    }
+    clients.insert(0, client);
+    notifyListeners();
+  }
+
+  Future<void> updateClient(
+    ClientProfile oldClient,
+    ClientProfile client,
+  ) async {
+    final index = clients.indexOf(oldClient);
+    if (index == -1) return;
+    if (token != null &&
+        token != 'offline-demo-token' &&
+        oldClient.id != null) {
+      try {
+        final updated = await api.updateClient(token!, oldClient.id!, client);
+        clients[index] = ClientProfile.fromJson(updated);
+        notifyListeners();
+        return;
+      } catch (_) {
+        syncStatus = 'Client modifie localement';
+      }
+    }
+    clients[index] = client;
+    notifyListeners();
+  }
+
+  Future<void> deleteClient(ClientProfile client) async {
+    if (token != null && token != 'offline-demo-token' && client.id != null) {
+      try {
+        await api.deleteClient(token!, client.id!);
+      } catch (_) {
+        syncStatus = 'Suppression locale uniquement';
+      }
+    }
+    clients.remove(client);
+    notifyListeners();
+  }
+
+  Future<void> addSite(SiteProfile site) async {
+    if (token != null && token != 'offline-demo-token') {
+      try {
+        final created = await api.createSite(token!, site);
+        sites.insert(0, SiteProfile.fromJson(created));
+        notifyListeners();
+        return;
+      } catch (_) {
+        syncStatus = 'Site ajoute localement';
+      }
+    }
     sites.insert(0, site);
     notifyListeners();
   }
 
-  void addEquipment(EquipmentItem item) {
+  Future<void> updateSite(SiteProfile oldSite, SiteProfile site) async {
+    final index = sites.indexOf(oldSite);
+    if (index == -1) return;
+    if (token != null && token != 'offline-demo-token' && oldSite.id != null) {
+      try {
+        final updated = await api.updateSite(token!, oldSite.id!, site);
+        sites[index] = SiteProfile.fromJson(updated);
+        notifyListeners();
+        return;
+      } catch (_) {
+        syncStatus = 'Site modifie localement';
+      }
+    }
+    sites[index] = site;
+    notifyListeners();
+  }
+
+  Future<void> deleteSite(SiteProfile site) async {
+    if (sites.length == 1) return;
+    if (token != null && token != 'offline-demo-token' && site.id != null) {
+      try {
+        await api.deleteSite(token!, site.id!);
+      } catch (_) {
+        syncStatus = 'Suppression locale uniquement';
+      }
+    }
+    sites.remove(site);
+    notifyListeners();
+  }
+
+  Future<void> addEquipment(EquipmentItem item) async {
+    if (token != null &&
+        token != 'offline-demo-token' &&
+        activeSite.id != null) {
+      try {
+        final created = await api.createEquipment(token!, activeSite.id!, item);
+        equipment.add(EquipmentItem.fromJson(created));
+        notifyListeners();
+        return;
+      } catch (_) {
+        syncStatus = 'Equipement ajoute localement';
+      }
+    }
     equipment.add(item);
+    notifyListeners();
+  }
+
+  void removeEquipment(EquipmentItem item) {
+    equipment.remove(item);
+    notifyListeners();
+  }
+
+  void deleteSimulation(SimulationRecord record) {
+    simulations.removeWhere((simulation) => simulation.id == record.id);
+    notifyListeners();
+  }
+
+  void clearHistory() {
+    simulations.clear();
     notifyListeners();
   }
 
@@ -173,16 +326,175 @@ class ApiClient {
     return _decode(response);
   }
 
+  Future<List<dynamic>> listClients(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/clients'),
+      headers: _authHeaders(token),
+    );
+    return _decodeList(response);
+  }
+
+  Future<Map<String, dynamic>> createClient(
+    String token,
+    ClientProfile client,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/clients'),
+      headers: _authHeaders(token),
+      body: jsonEncode(client.toJson()),
+    );
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> updateClient(
+    String token,
+    int id,
+    ClientProfile client,
+  ) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/clients/$id'),
+      headers: _authHeaders(token),
+      body: jsonEncode(client.toJson()),
+    );
+    return _decode(response);
+  }
+
+  Future<void> deleteClient(String token, int id) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/clients/$id'),
+      headers: _authHeaders(token),
+    );
+    if (response.statusCode >= 400) throw Exception(response.body);
+  }
+
+  Future<List<dynamic>> listSites(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/sites'),
+      headers: _authHeaders(token),
+    );
+    return _decodeList(response);
+  }
+
+  Future<Map<String, dynamic>> createSite(
+    String token,
+    SiteProfile site,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/sites'),
+      headers: _authHeaders(token),
+      body: jsonEncode(site.toJson()),
+    );
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> updateSite(
+    String token,
+    int id,
+    SiteProfile site,
+  ) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/sites/$id'),
+      headers: _authHeaders(token),
+      body: jsonEncode(site.toJson()),
+    );
+    return _decode(response);
+  }
+
+  Future<void> deleteSite(String token, int id) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/sites/$id'),
+      headers: _authHeaders(token),
+    );
+    if (response.statusCode >= 400) throw Exception(response.body);
+  }
+
+  Future<Map<String, dynamic>> createEquipment(
+    String token,
+    int siteId,
+    EquipmentItem item,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/sites/$siteId/equipment'),
+      headers: _authHeaders(token),
+      body: jsonEncode(item.toJson()),
+    );
+    return _decode(response);
+  }
+
+  Map<String, String> _authHeaders(String token) => {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer $token',
+  };
+
   Map<String, dynamic> _decode(http.Response response) {
     if (response.statusCode >= 400) {
       throw Exception(response.body);
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
+
+  List<dynamic> _decodeList(http.Response response) {
+    if (response.statusCode >= 400) {
+      throw Exception(response.body);
+    }
+    return jsonDecode(response.body) as List<dynamic>;
+  }
+}
+
+class ClientProfile {
+  const ClientProfile({
+    this.id,
+    required this.name,
+    required this.organization,
+    required this.phone,
+    required this.email,
+    required this.address,
+    required this.notes,
+  });
+
+  factory ClientProfile.demo() => const ClientProfile(
+    name: 'Client academique',
+    organization: 'Green Site Demo',
+    phone: '+243 000 000 000',
+    email: 'client@example.com',
+    address: 'Goma, RDC',
+    notes: 'Client fictif pour presentation academique.',
+  );
+
+  factory ClientProfile.fromJson(dynamic json) {
+    final map = json as Map<String, dynamic>;
+    return ClientProfile(
+      id: map['id'] as int?,
+      name: map['name'] as String? ?? '',
+      organization: map['organization'] as String? ?? '',
+      phone: map['phone'] as String? ?? '',
+      email: map['email'] as String? ?? '',
+      address: map['address'] as String? ?? '',
+      notes: map['notes'] as String? ?? '',
+    );
+  }
+
+  final int? id;
+  final String name;
+  final String organization;
+  final String phone;
+  final String email;
+  final String address;
+  final String notes;
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'organization': organization,
+    'phone': phone,
+    'email': email,
+    'address': address,
+    'notes': notes,
+  };
 }
 
 class SiteProfile {
   const SiteProfile({
+    this.id,
     required this.name,
     required this.city,
     required this.country,
@@ -208,6 +520,26 @@ class SiteProfile {
     systemVoltage: 48,
   );
 
+  factory SiteProfile.fromJson(dynamic json) {
+    final map = json as Map<String, dynamic>;
+    return SiteProfile(
+      id: map['id'] as int?,
+      name: map['name'] as String? ?? '',
+      city: map['city'] as String? ?? '',
+      country: map['country'] as String? ?? '',
+      siteType: map['site_type'] as String? ?? '',
+      description: map['description'] as String? ?? '',
+      operatingHoursPerDay:
+          (map['operating_hours_per_day'] as num?)?.toDouble() ?? 24,
+      autonomyDays: (map['autonomy_days'] as num?)?.toDouble() ?? 2,
+      solarIrradiationHours:
+          (map['solar_irradiation_hours'] as num?)?.toDouble() ?? 5,
+      systemEfficiency: (map['system_efficiency'] as num?)?.toDouble() ?? 0.8,
+      systemVoltage: (map['system_voltage'] as num?)?.round() ?? 48,
+    );
+  }
+
+  final int? id;
   final String name;
   final String city;
   final String country;
@@ -218,10 +550,24 @@ class SiteProfile {
   final double solarIrradiationHours;
   final double systemEfficiency;
   final int systemVoltage;
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'city': city,
+    'country': country,
+    'site_type': siteType,
+    'description': description,
+    'operating_hours_per_day': operatingHoursPerDay,
+    'autonomy_days': autonomyDays,
+    'solar_irradiation_hours': solarIrradiationHours,
+    'system_efficiency': systemEfficiency,
+    'system_voltage': systemVoltage,
+  };
 }
 
 class EquipmentItem {
   const EquipmentItem({
+    this.id,
     required this.name,
     required this.category,
     required this.powerWatts,
@@ -274,11 +620,32 @@ class EquipmentItem {
     ),
   ];
 
+  factory EquipmentItem.fromJson(dynamic json) {
+    final map = json as Map<String, dynamic>;
+    return EquipmentItem(
+      id: map['id'] as int?,
+      name: map['name'] as String? ?? '',
+      category: map['category'] as String? ?? 'Autre',
+      powerWatts: (map['power_watts'] as num?)?.toDouble() ?? 0,
+      quantity: (map['quantity'] as num?)?.round() ?? 1,
+      hoursPerDay: (map['hours_per_day'] as num?)?.toDouble() ?? 24,
+    );
+  }
+
+  final int? id;
   final String name;
   final String category;
   final double powerWatts;
   final int quantity;
   final double hoursPerDay;
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'category': category,
+    'power_watts': powerWatts,
+    'quantity': quantity,
+    'hours_per_day': hoursPerDay,
+  };
 }
 
 class SimulationInputs {
@@ -663,6 +1030,7 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final pages = [
       const DashboardScreen(),
+      const ClientsScreen(),
       const SitesScreen(),
       const SimulationScreen(),
       const HistoryScreen(),
@@ -678,6 +1046,11 @@ class _HomeShellState extends State<HomeShell> {
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard),
             label: 'Tableau',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.groups_outlined),
+            selectedIcon: Icon(Icons.groups),
+            label: 'Clients',
           ),
           NavigationDestination(
             icon: Icon(Icons.cell_tower_outlined),
@@ -720,7 +1093,18 @@ class DashboardScreen extends StatelessWidget {
         icon: const Icon(Icons.add_circle_outline),
       ),
       children: [
+        if (state.syncing) const LinearProgressIndicator(),
         NoticeCard(text: academicNotice),
+        InfoCard(
+          icon: Icons.cloud_done_outlined,
+          title: state.syncStatus,
+          subtitle: state.api.baseUrl,
+          lines: [
+            '${state.clients.length} clients',
+            '${state.sites.length} sites',
+            '${state.equipment.length} equipements',
+          ],
+        ),
         GridView.count(
           crossAxisCount: MediaQuery.sizeOf(context).width > 700 ? 4 : 2,
           shrinkWrap: true,
@@ -776,6 +1160,136 @@ class DashboardScreen extends StatelessWidget {
   }
 }
 
+class ClientsScreen extends StatelessWidget {
+  const ClientsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    return AppPage(
+      title: 'Clients',
+      action: IconButton(
+        tooltip: 'Ajouter client',
+        onPressed: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const ClientFormScreen())),
+        icon: const Icon(Icons.person_add_alt),
+      ),
+      children: [
+        for (final client in state.clients)
+          InfoCard(
+            icon: Icons.business_center_outlined,
+            title: client.name,
+            subtitle: client.organization,
+            lines: [
+              if (client.phone.isNotEmpty) client.phone,
+              if (client.email.isNotEmpty) client.email,
+              if (client.address.isNotEmpty) client.address,
+            ],
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ClientFormScreen(existing: client),
+              ),
+            ),
+            trailing: IconButton(
+              tooltip: 'Supprimer',
+              onPressed: () => state.deleteClient(client),
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class ClientFormScreen extends StatefulWidget {
+  const ClientFormScreen({this.existing, super.key});
+
+  final ClientProfile? existing;
+
+  @override
+  State<ClientFormScreen> createState() => _ClientFormScreenState();
+}
+
+class _ClientFormScreenState extends State<ClientFormScreen> {
+  late final TextEditingController name;
+  late final TextEditingController organization;
+  late final TextEditingController phone;
+  late final TextEditingController email;
+  late final TextEditingController address;
+  late final TextEditingController notes;
+
+  @override
+  void initState() {
+    super.initState();
+    final client = widget.existing ?? ClientProfile.demo();
+    name = TextEditingController(text: client.name);
+    organization = TextEditingController(text: client.organization);
+    phone = TextEditingController(text: client.phone);
+    email = TextEditingController(text: client.email);
+    address = TextEditingController(text: client.address);
+    notes = TextEditingController(text: client.notes);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final editing = widget.existing != null;
+    return AppPage(
+      title: editing ? 'Modifier client' : 'Nouveau client',
+      showBack: true,
+      children: [
+        AppTextField(
+          controller: name,
+          label: 'Nom client',
+          icon: Icons.person_outline,
+        ),
+        AppTextField(
+          controller: organization,
+          label: 'Organisation',
+          icon: Icons.business_outlined,
+        ),
+        AppTextField(
+          controller: phone,
+          label: 'Telephone',
+          icon: Icons.call_outlined,
+        ),
+        AppTextField(
+          controller: email,
+          label: 'Email',
+          icon: Icons.mail_outline,
+        ),
+        AppTextField(
+          controller: address,
+          label: 'Adresse',
+          icon: Icons.location_on_outlined,
+        ),
+        AppTextField(controller: notes, label: 'Notes', icon: Icons.notes),
+        FilledButton.icon(
+          onPressed: () async {
+            final client = ClientProfile(
+              id: widget.existing?.id,
+              name: name.text,
+              organization: organization.text,
+              phone: phone.text,
+              email: email.text,
+              address: address.text,
+              notes: notes.text,
+            );
+            if (editing) {
+              await AppScope.of(context).updateClient(widget.existing!, client);
+            } else {
+              await AppScope.of(context).addClient(client);
+            }
+            if (context.mounted) Navigator.of(context).pop();
+          },
+          icon: Icon(editing ? Icons.save_outlined : Icons.add),
+          label: Text(editing ? 'Enregistrer' : 'Ajouter'),
+        ),
+      ],
+    );
+  }
+}
+
 class SitesScreen extends StatelessWidget {
   const SitesScreen({super.key});
 
@@ -806,6 +1320,25 @@ class SitesScreen extends StatelessWidget {
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => SiteDetailScreen(site: site)),
             ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Modifier',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => SiteFormScreen(existing: site),
+                    ),
+                  ),
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+                IconButton(
+                  tooltip: 'Supprimer',
+                  onPressed: () => state.deleteSite(site),
+                  icon: const Icon(Icons.delete_outline),
+                ),
+              ],
+            ),
           ),
       ],
     );
@@ -819,7 +1352,8 @@ class SiteDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final equipment = AppScope.of(context).equipment;
+    final state = AppScope.of(context);
+    final equipment = state.equipment;
     return AppPage(
       title: 'Details du site',
       action: IconButton(
@@ -851,6 +1385,11 @@ class SiteDetailScreen extends StatelessWidget {
               '${item.powerWatts.toStringAsFixed(0)} W x ${item.quantity}',
               '${item.hoursPerDay} h/jour',
             ],
+            trailing: IconButton(
+              tooltip: 'Supprimer',
+              onPressed: () => state.removeEquipment(item),
+              icon: const Icon(Icons.delete_outline),
+            ),
           ),
       ],
     );
@@ -858,29 +1397,51 @@ class SiteDetailScreen extends StatelessWidget {
 }
 
 class SiteFormScreen extends StatefulWidget {
-  const SiteFormScreen({super.key});
+  const SiteFormScreen({this.existing, super.key});
+
+  final SiteProfile? existing;
 
   @override
   State<SiteFormScreen> createState() => _SiteFormScreenState();
 }
 
 class _SiteFormScreenState extends State<SiteFormScreen> {
-  final name = TextEditingController(text: 'HAYATCOM/GOMA Simulation 1');
-  final city = TextEditingController(text: 'Goma');
-  final country = TextEditingController(text: 'RDC');
-  final type = TextEditingController(text: 'Site telecom BTS');
-  final description = TextEditingController(
-    text: 'Simulation academique sans donnees reelles.',
-  );
-  final autonomy = TextEditingController(text: '2');
-  final irradiation = TextEditingController(text: '5');
-  final efficiency = TextEditingController(text: '80');
-  int voltage = 48;
+  late final TextEditingController name;
+  late final TextEditingController city;
+  late final TextEditingController country;
+  late final TextEditingController type;
+  late final TextEditingController description;
+  late final TextEditingController autonomy;
+  late final TextEditingController irradiation;
+  late final TextEditingController efficiency;
+  late int voltage;
+
+  @override
+  void initState() {
+    super.initState();
+    final site = widget.existing ?? SiteProfile.demo();
+    name = TextEditingController(text: site.name);
+    city = TextEditingController(text: site.city);
+    country = TextEditingController(text: site.country);
+    type = TextEditingController(text: site.siteType);
+    description = TextEditingController(text: site.description);
+    autonomy = TextEditingController(
+      text: site.autonomyDays.toStringAsFixed(0),
+    );
+    irradiation = TextEditingController(
+      text: site.solarIrradiationHours.toStringAsFixed(0),
+    );
+    efficiency = TextEditingController(
+      text: (site.systemEfficiency * 100).toStringAsFixed(0),
+    );
+    voltage = site.systemVoltage;
+  }
 
   @override
   Widget build(BuildContext context) {
     return AppPage(
-      title: 'Creation site',
+      title: widget.existing == null ? 'Creation site' : 'Modifier site',
+      showBack: true,
       children: [
         AppTextField(
           controller: name,
@@ -938,22 +1499,26 @@ class _SiteFormScreenState extends State<SiteFormScreen> {
               setState(() => voltage = values.first),
         ),
         FilledButton.icon(
-          onPressed: () {
-            AppScope.of(context).addSite(
-              SiteProfile(
-                name: name.text,
-                city: city.text,
-                country: country.text,
-                siteType: type.text,
-                description: description.text,
-                operatingHoursPerDay: 24,
-                autonomyDays: readDouble(autonomy, 2),
-                solarIrradiationHours: readDouble(irradiation, 5),
-                systemEfficiency: readDouble(efficiency, 80) / 100,
-                systemVoltage: voltage,
-              ),
+          onPressed: () async {
+            final site = SiteProfile(
+              id: widget.existing?.id,
+              name: name.text,
+              city: city.text,
+              country: country.text,
+              siteType: type.text,
+              description: description.text,
+              operatingHoursPerDay: 24,
+              autonomyDays: readDouble(autonomy, 2),
+              solarIrradiationHours: readDouble(irradiation, 5),
+              systemEfficiency: readDouble(efficiency, 80) / 100,
+              systemVoltage: voltage,
             );
-            Navigator.of(context).pop();
+            if (widget.existing == null) {
+              await AppScope.of(context).addSite(site);
+            } else {
+              await AppScope.of(context).updateSite(widget.existing!, site);
+            }
+            if (context.mounted) Navigator.of(context).pop();
           },
           icon: const Icon(Icons.save_outlined),
           label: const Text('Sauvegarder'),
@@ -1030,8 +1595,8 @@ class _EquipmentFormScreenState extends State<EquipmentFormScreen> {
           ],
         ),
         FilledButton.icon(
-          onPressed: () {
-            AppScope.of(context).addEquipment(
+          onPressed: () async {
+            await AppScope.of(context).addEquipment(
               EquipmentItem(
                 name: name.text.isEmpty ? category : name.text,
                 category: category,
@@ -1040,7 +1605,7 @@ class _EquipmentFormScreenState extends State<EquipmentFormScreen> {
                 hoursPerDay: readDouble(hours, 24),
               ),
             );
-            Navigator.of(context).pop();
+            if (context.mounted) Navigator.of(context).pop();
           },
           icon: const Icon(Icons.save_outlined),
           label: const Text('Ajouter'),
@@ -1244,16 +1809,24 @@ class HistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final simulations = AppScope.of(context).simulations;
+    final state = AppScope.of(context);
+    final simulations = state.simulations;
     return AppPage(
       title: 'Historique',
       showBack: asPage,
+      action: simulations.isEmpty
+          ? null
+          : IconButton(
+              tooltip: 'Vider',
+              onPressed: state.clearHistory,
+              icon: const Icon(Icons.delete_sweep_outlined),
+            ),
       children: [
         if (simulations.isEmpty)
           const InfoCard(
             icon: Icons.history,
             title: 'Aucune simulation sauvegardee',
-            subtitle: 'Lancez un calcul pour alimenter lhistorique.',
+            subtitle: "Lancez un calcul pour alimenter l'historique.",
             lines: [],
           ),
         for (final simulation in simulations)
@@ -1272,6 +1845,11 @@ class HistoryScreen extends StatelessWidget {
                 builder: (_) => ResultScreen(record: simulation),
               ),
             ),
+            trailing: IconButton(
+              tooltip: 'Supprimer',
+              onPressed: () => state.deleteSimulation(simulation),
+              icon: const Icon(Icons.delete_outline),
+            ),
           ),
       ],
     );
@@ -1287,6 +1865,12 @@ class ReportScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppPage(
       title: 'Rapport',
+      showBack: true,
+      action: IconButton(
+        tooltip: 'Copier',
+        onPressed: () => copyReport(context, record),
+        icon: const Icon(Icons.copy_all_outlined),
+      ),
       children: [
         NoticeCard(text: academicNotice),
         InfoCard(
@@ -1319,6 +1903,20 @@ class ReportScreen extends StatelessWidget {
         const Text('- Regulateur et onduleur avec marge de 25%'),
         const SizedBox(height: 8),
         ResultGrid(result: record.result),
+        FilledButton.icon(
+          onPressed: () => copyReport(context, record),
+          icon: const Icon(Icons.copy_all_outlined),
+          label: const Text('Copier le rapport'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const SimulationScreen(asPage: true),
+            ),
+          ),
+          icon: const Icon(Icons.add_chart_outlined),
+          label: const Text('Nouvelle simulation'),
+        ),
       ],
     );
   }
@@ -1445,7 +2043,7 @@ class AppPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: showBack,
+        automaticallyImplyLeading: showBack || Navigator.of(context).canPop(),
         title: Text(title),
         actions: [if (action != null) action!],
       ),
@@ -1539,6 +2137,7 @@ class InfoCard extends StatelessWidget {
     required this.subtitle,
     required this.lines,
     this.onTap,
+    this.trailing,
     super.key,
   });
 
@@ -1547,6 +2146,7 @@ class InfoCard extends StatelessWidget {
   final String subtitle;
   final List<String> lines;
   final VoidCallback? onTap;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -1585,6 +2185,7 @@ class InfoCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (trailing != null) ...[const SizedBox(width: 8), trailing!],
             ],
           ),
         ),
@@ -1628,4 +2229,52 @@ double readDouble(TextEditingController controller, double fallback) {
 
 String shortDate(DateTime date) {
   return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+}
+
+Future<void> copyReport(BuildContext context, SimulationRecord record) async {
+  await Clipboard.setData(ClipboardData(text: buildReportText(record)));
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(const SnackBar(content: Text('Rapport copie')));
+}
+
+String buildReportText(SimulationRecord record) {
+  final result = record.result;
+  final equipment = record.equipment
+      .map(
+        (item) =>
+            '- ${item.name}: ${item.powerWatts.toStringAsFixed(0)} W x ${item.quantity}, ${item.hoursPerDay} h/jour',
+      )
+      .join('\n');
+  final recommendations = result.recommendations
+      .map((item) => '- $item')
+      .join('\n');
+  return '''
+GreenSite PV Simulator
+$academicNotice
+
+Site
+${record.site.name}
+${record.site.city}, ${record.site.country}
+${record.site.siteType}
+
+Equipements
+$equipment
+
+Resultats
+Puissance totale: ${result.totalPowerWatts.toStringAsFixed(0)} W
+Energie journaliere: ${(result.dailyEnergyWh / 1000).toStringAsFixed(2)} kWh/jour
+Energie corrigee: ${(result.correctedEnergyWh / 1000).toStringAsFixed(2)} kWh/jour
+Puissance PV: ${result.requiredPvPowerWc.toStringAsFixed(0)} Wc
+Panneaux: ${result.numberOfPanels}
+Batterie: ${result.requiredBatteryCapacityWh.toStringAsFixed(0)} Wh / ${result.requiredBatteryCapacityAh.toStringAsFixed(0)} Ah
+Batteries: ${result.numberOfBatteries}
+Regulateur: ${result.controllerCurrentA.toStringAsFixed(1)} A
+Onduleur: ${result.inverterPowerWatts.toStringAsFixed(0)} W
+Cout total: ${result.totalCost.toStringAsFixed(0)} USD
+
+Recommandations
+$recommendations
+''';
 }

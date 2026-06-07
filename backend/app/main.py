@@ -2,7 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import create_db_and_tables
-from app.routes import auth_routes, equipment_routes, simulation_routes, site_routes
+from app.routes import (
+    auth_routes,
+    client_routes,
+    equipment_routes,
+    simulation_routes,
+    site_routes,
+)
 
 app = FastAPI(
     title="GreenSite PV Simulator API",
@@ -22,6 +28,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_routes.router)
+app.include_router(client_routes.router)
 app.include_router(site_routes.router)
 app.include_router(equipment_routes.router)
 app.include_router(simulation_routes.router)
@@ -42,4 +49,3 @@ def root() -> dict[str, str]:
         ),
         "docs": "/docs",
     }
-

@@ -1,6 +1,7 @@
 from sqlmodel import Session, select
 
 from app.database import create_db_and_tables, engine
+from app.models.client import Client
 from app.models.equipment import Equipment
 from app.models.simulation import Simulation
 from app.models.site import Site
@@ -16,18 +17,46 @@ def run() -> None:
             select(User).where(User.email == "student@example.com")
         ).first()
         if existing:
+            user = existing
+        else:
+            user = User(
+                full_name="Etudiant Demo",
+                email="student@example.com",
+                hashed_password=hash_password("password123"),
+                role=UserRole.student,
+            )
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+
+        existing_client = session.exec(
+            select(Client).where(
+                Client.user_id == (user.id or 0),
+                Client.email == "client@example.com",
+            )
+        ).first()
+        if not existing_client:
+            client = Client(
+                user_id=user.id or 0,
+                name="Client academique",
+                organization="Green Site Demo",
+                phone="+243 000 000 000",
+                email="client@example.com",
+                address="Goma, RDC",
+                notes="Client fictif pour presentation academique.",
+            )
+            session.add(client)
+            session.commit()
+
+        existing_site = session.exec(
+            select(Site).where(
+                Site.user_id == (user.id or 0),
+                Site.name == "HAYATCOM/GOMA Simulation",
+            )
+        ).first()
+        if existing_site:
             print("Seed data already exists.")
             return
-
-        user = User(
-            full_name="Etudiant Demo",
-            email="student@example.com",
-            hashed_password=hash_password("password123"),
-            role=UserRole.student,
-        )
-        session.add(user)
-        session.commit()
-        session.refresh(user)
 
         site = Site(
             user_id=user.id or 0,
@@ -93,4 +122,3 @@ def run() -> None:
 
 if __name__ == "__main__":
     run()
-
