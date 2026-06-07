@@ -9,7 +9,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 copy .env.example .env
-uvicorn app.main:app --reload
+.\run.ps1
 ```
 
 ## Endpoints principaux
@@ -39,11 +39,13 @@ Compte cree : `student@example.com / password123`.
 Configurer :
 
 ```env
-DATABASE_URL=postgresql://username:password@host:port/database
+DATABASE_URL=postgresql://username:password@external-host:5432/database?sslmode=require
 SECRET_KEY=replace_with_a_long_random_secret
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
 ENVIRONMENT=production
 ```
+
+Depuis votre machine locale, utilisez l'External Database URL Render avec le domaine complet `*.render.com` et `sslmode=require`. Dans un service web Render connecte a la meme base, vous pouvez utiliser l'Internal Database URL.
 
 Le fichier `render.yaml` peut etre utilise pour creer le web service et la base PostgreSQL.
