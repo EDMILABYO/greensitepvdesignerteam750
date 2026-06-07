@@ -1,0 +1,64 @@
+# GreenSite PV Simulator
+
+Application academique de simulation et de dimensionnement photovoltaique pour un site de telecommunication Green Site. Les donnees HAYATCOM/GOMA incluses sont fictives et servent uniquement de scenario de demonstration.
+
+## Contenu
+
+- `lib/` : application mobile Flutter Android-first.
+- `backend/` : API FastAPI avec SQLModel, JWT, migrations Alembic et configuration Render.
+- `backend/app/seed.py` : jeu de donnees simule `student@example.com / password123`.
+
+## Backend local
+
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+copy .env.example .env
+uvicorn app.main:app --reload
+```
+
+Swagger est disponible sur `http://localhost:8000/docs`.
+
+Pour creer les donnees de test :
+
+```powershell
+cd backend
+python -m app.seed
+```
+
+En developpement, l'API utilise SQLite si `DATABASE_URL` n'est pas defini. Pour PostgreSQL Render, renseigner `DATABASE_URL`, `SECRET_KEY`, `ALGORITHM` et `ACCESS_TOKEN_EXPIRE_MINUTES`.
+
+## Migrations
+
+```powershell
+cd backend
+alembic upgrade head
+```
+
+## Deploiement Render
+
+Le fichier `backend/render.yaml` declare un service web FastAPI et une base PostgreSQL. Sur Render, creer le Blueprint depuis le dossier `backend`, puis verifier que `DATABASE_URL` et `SECRET_KEY` sont bien fournis.
+
+## Application Flutter
+
+```powershell
+flutter pub get
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
+```
+
+Sur un appareil physique, remplacer `10.0.2.2` par l'adresse IP locale de la machine qui execute FastAPI.
+
+L'application contient un mode demo local: si l'API n'est pas joignable au moment de la connexion, elle permet quand meme de presenter les ecrans, les calculs, l'historique et le rapport.
+
+## Formules implementees
+
+- Puissance totale : somme `puissance x quantite`.
+- Energie journaliere : somme `puissance x quantite x heures/jour`.
+- Energie corrigee : `energie journaliere / rendement`.
+- Puissance PV : `energie corrigee / heures solaires`.
+- Batteries : `energie journaliere x autonomie / tension / DOD`.
+- Regulateur : `puissance PV / tension x 1.25`.
+- Onduleur : `puissance totale x 1.25`.
+- Cout total : panneaux + batteries + regulateur + onduleur + accessoires + main d'oeuvre + maintenance.
