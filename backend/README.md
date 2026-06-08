@@ -23,6 +23,8 @@ copy .env.example .env
 - `DELETE /clients/{client_id}`
 - `POST /feasibility/calculate`
 - `POST /design/calculate`
+- `POST /implementation/validate`
+- `POST /maintenance/evaluate`
 - `POST /sites`
 - `GET /sites`
 - `POST /sites/{site_id}/equipment`

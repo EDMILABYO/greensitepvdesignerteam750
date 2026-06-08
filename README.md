@@ -88,3 +88,31 @@ Le module Conception PV inclut maintenant :
 - architecture recommandee ;
 - protections DC/AC recommandees ;
 - resultats de dimensionnement panneaux, batteries, regulateur et onduleur.
+
+## Phase 3 - Implementation et Optimisation
+
+Le module Implementation couvre :
+
+- orientation recommandee selon la latitude ;
+- inclinaison recommandee des panneaux ;
+- checklist installation terrain ;
+- protocole de tests post-installation ;
+- comparaison production theorique vs production mesuree ;
+- performance ratio ;
+- controle tension batterie ;
+- optimisation des charges par veille intelligente ;
+- alertes operationnelles ;
+- recommandations de supervision distante.
+
+## Phase 4 - Suivi, Maintenance et Valorisation
+
+Le module Suivi maintenance couvre :
+
+- KPI de disponibilite, performance ratio, SOC, SOH et cycles batterie ;
+- evaluation de sante globale du site ;
+- planning de nettoyage panneaux ;
+- planning d'inspection electrique ;
+- alertes automatiques ;
+- bilan CO2 evite ;
+- potentiel de generalisation multi-sites ;
+- points de valorisation RSE et rapport mensuel.

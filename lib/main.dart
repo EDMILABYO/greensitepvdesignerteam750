@@ -260,6 +260,17 @@ class AppState extends ChangeNotifier {
     return calculateFeasibility(activeSite, equipment, inputs);
   }
 
+  ImplementationResult runImplementation(
+    ImplementationInputs inputs,
+    SimulationResult? latestDesign,
+  ) {
+    return calculateImplementation(activeSite, inputs, latestDesign);
+  }
+
+  MaintenanceResult runMaintenance(MaintenanceInputs inputs) {
+    return evaluateMaintenance(inputs);
+  }
+
   SimulationRecord runSimulation(SimulationInputs inputs) {
     final result = calculate(activeSite, equipment, inputs);
     final record = SimulationRecord(
@@ -818,6 +829,236 @@ class FeasibilityResult {
   final List<String> recommendations;
 }
 
+class ImplementationInputs {
+  const ImplementationInputs({
+    this.latitude = -1.68,
+    this.measuredDailyEnergyKwh = 50,
+    this.measuredBatteryVoltage = 48,
+    this.expectedBatteryVoltage = 48,
+    this.smartSleepSavingsPercent = 8,
+  });
+
+  final double latitude;
+  final double measuredDailyEnergyKwh;
+  final double measuredBatteryVoltage;
+  final double expectedBatteryVoltage;
+  final double smartSleepSavingsPercent;
+}
+
+class ImplementationResult {
+  const ImplementationResult({
+    required this.recommendedTiltDegrees,
+    required this.recommendedOrientation,
+    required this.theoreticalDailyEnergyKwh,
+    required this.performanceRatio,
+    required this.energyGapKwh,
+    required this.batteryVoltageStatus,
+    required this.optimizedLoadPowerWatts,
+    required this.installationChecklist,
+    required this.testProtocol,
+    required this.operationalRecommendations,
+    required this.alerts,
+  });
+
+  final double recommendedTiltDegrees;
+  final String recommendedOrientation;
+  final double theoreticalDailyEnergyKwh;
+  final double performanceRatio;
+  final double energyGapKwh;
+  final String batteryVoltageStatus;
+  final double optimizedLoadPowerWatts;
+  final List<String> installationChecklist;
+  final List<String> testProtocol;
+  final List<String> operationalRecommendations;
+  final List<String> alerts;
+}
+
+class MaintenanceInputs {
+  const MaintenanceInputs({
+    this.availabilityPercent = 99,
+    this.performanceRatio = 0.85,
+    this.batterySocPercent = 80,
+    this.batterySohPercent = 92,
+    this.batteryCycles = 450,
+    this.daysSincePanelCleaning = 20,
+    this.daysSinceElectricalInspection = 45,
+    this.annualDieselLitersAvoided = 4500,
+    this.sitesReplicableCount = 1,
+  });
+
+  final double availabilityPercent;
+  final double performanceRatio;
+  final double batterySocPercent;
+  final double batterySohPercent;
+  final int batteryCycles;
+  final int daysSincePanelCleaning;
+  final int daysSinceElectricalInspection;
+  final double annualDieselLitersAvoided;
+  final int sitesReplicableCount;
+}
+
+class MaintenanceResult {
+  const MaintenanceResult({
+    required this.healthScore,
+    required this.availabilityStatus,
+    required this.energyStatus,
+    required this.batteryStatus,
+    required this.co2AvoidedKgPerYear,
+    required this.networkCo2PotentialKgPerYear,
+    required this.nextPanelCleaningDays,
+    required this.nextElectricalInspectionDays,
+    required this.maintenanceTasks,
+    required this.alerts,
+    required this.kpis,
+    required this.valorizationPoints,
+  });
+
+  final int healthScore;
+  final String availabilityStatus;
+  final String energyStatus;
+  final String batteryStatus;
+  final double co2AvoidedKgPerYear;
+  final double networkCo2PotentialKgPerYear;
+  final int nextPanelCleaningDays;
+  final int nextElectricalInspectionDays;
+  final List<String> maintenanceTasks;
+  final List<String> alerts;
+  final List<String> kpis;
+  final List<String> valorizationPoints;
+}
+
+MaintenanceResult evaluateMaintenance(MaintenanceInputs inputs) {
+  var score = 100;
+  final alerts = <String>[];
+  if (inputs.availabilityPercent < 99) {
+    score -= 15;
+    alerts.add('Disponibilite inferieure a 99%: analyser les coupures.');
+  }
+  if (inputs.performanceRatio < 0.8) {
+    score -= 20;
+    alerts.add('Performance ratio faible: nettoyer panneaux et verifier MPPT.');
+  }
+  if (inputs.batterySocPercent < 30) {
+    score -= 15;
+    alerts.add('SOC batterie faible: risque de coupure.');
+  }
+  if (inputs.batterySohPercent < 80) {
+    score -= 20;
+    alerts.add('SOH batterie faible: planifier remplacement.');
+  }
+  if (inputs.daysSincePanelCleaning > 30) {
+    score -= 10;
+    alerts.add('Nettoyage panneaux en retard.');
+  }
+  if (inputs.daysSinceElectricalInspection > 90) {
+    score -= 10;
+    alerts.add('Inspection electrique en retard.');
+  }
+  score = max(0, score);
+  final co2 = inputs.annualDieselLitersAvoided * 2.68;
+  final nextCleaning = max(0, 30 - inputs.daysSincePanelCleaning);
+  final nextInspection = max(0, 90 - inputs.daysSinceElectricalInspection);
+  return MaintenanceResult(
+    healthScore: score,
+    availabilityStatus: inputs.availabilityPercent >= 99
+        ? 'Excellent'
+        : 'A surveiller',
+    energyStatus: inputs.performanceRatio >= 0.8 ? 'Normal' : 'Degrade',
+    batteryStatus: inputs.batterySohPercent >= 80 ? 'Normal' : 'Critique',
+    co2AvoidedKgPerYear: co2,
+    networkCo2PotentialKgPerYear: co2 * inputs.sitesReplicableCount,
+    nextPanelCleaningDays: nextCleaning,
+    nextElectricalInspectionDays: nextInspection,
+    maintenanceTasks: [
+      'Nettoyage panneaux dans $nextCleaning jours.',
+      'Inspection connexions/protections dans $nextInspection jours.',
+      'Verifier serrage DC/AC, corrosion, parafoudre et mise a la terre.',
+      'Exporter les KPI mensuels pour le rapport de suivi.',
+    ],
+    alerts: alerts.isEmpty ? ['Aucune alerte critique detectee.'] : alerts,
+    kpis: [
+      'Disponibilite: ${inputs.availabilityPercent.toStringAsFixed(1)}%',
+      'Performance ratio: ${(inputs.performanceRatio * 100).toStringAsFixed(1)}%',
+      'SOC batterie: ${inputs.batterySocPercent.toStringAsFixed(1)}%',
+      'SOH batterie: ${inputs.batterySohPercent.toStringAsFixed(1)}%',
+      'Cycles batterie: ${inputs.batteryCycles}',
+    ],
+    valorizationPoints: [
+      'CO2 evite: ${(co2 / 1000).toStringAsFixed(2)} tonnes/an.',
+      'Potentiel ${inputs.sitesReplicableCount} sites: ${(co2 * inputs.sitesReplicableCount / 1000).toStringAsFixed(2)} tonnes/an.',
+      'Les KPI soutiennent la strategie RSE et la generalisation multi-sites.',
+    ],
+  );
+}
+
+ImplementationResult calculateImplementation(
+  SiteProfile site,
+  ImplementationInputs inputs,
+  SimulationResult? latestDesign,
+) {
+  final tilt = max(10, min(35, inputs.latitude.abs() + 10)).toDouble();
+  final orientation = inputs.latitude < 0 ? 'Nord' : 'Sud';
+  final panelCount = latestDesign?.numberOfPanels ?? 26;
+  final pvPower = latestDesign?.requiredPvPowerWc ?? 14300;
+  final efficiency = latestDesign?.globalEfficiency ?? site.systemEfficiency;
+  final theoreticalEnergy =
+      pvPower * site.solarIrradiationHours * efficiency / 1000;
+  final performanceRatio = theoreticalEnergy > 0
+      ? inputs.measuredDailyEnergyKwh / theoreticalEnergy
+      : 0.0;
+  final voltageDelta =
+      (inputs.measuredBatteryVoltage - inputs.expectedBatteryVoltage).abs();
+  final batteryStatus = voltageDelta <= 2 ? 'Normal' : 'A verifier';
+  final criticalLoad =
+      latestDesign?.totalPowerWatts ??
+      EquipmentItem.demoItems().fold<double>(
+        0,
+        (sum, item) => sum + item.powerWatts * item.quantity,
+      );
+  final optimizedLoad =
+      criticalLoad * (1 - inputs.smartSleepSavingsPercent / 100);
+  final alerts = <String>[
+    if (performanceRatio < 0.75)
+      'Performance faible: verifier ombrage, poussiere, cablage ou MPPT.',
+    if (performanceRatio > 1.15)
+      'Production mesuree atypique: verifier les donnees saisies.',
+    if (batteryStatus != 'Normal')
+      'Tension batterie hors tolerance: inspecter banc batterie et connexions.',
+  ];
+  return ImplementationResult(
+    recommendedTiltDegrees: tilt,
+    recommendedOrientation: orientation,
+    theoreticalDailyEnergyKwh: theoreticalEnergy,
+    performanceRatio: performanceRatio,
+    energyGapKwh: inputs.measuredDailyEnergyKwh - theoreticalEnergy,
+    batteryVoltageStatus: batteryStatus,
+    optimizedLoadPowerWatts: optimizedLoad,
+    installationChecklist: [
+      "Verifier supports, ancrage mecanique et absence d'ombrage.",
+      'Orienter les panneaux vers le $orientation et regler ${tilt.toStringAsFixed(1)} degres.',
+      'Controler polarite DC, serrage, section de cable et chute de tension.',
+      'Installer mise a la terre, parafoudre, disjoncteurs et fusibles.',
+      'Etiqueter PV, batteries, regulateur, onduleur et charges critiques.',
+      'Documenter photos, mesures initiales et numero de serie des composants.',
+    ],
+    testProtocol: [
+      'Mesurer tension/courant PV a vide et en charge.',
+      'Comparer production mesuree et production theorique sur 24h.',
+      'Tester bascule batterie/onduleur et autonomie minimale.',
+      'Verifier priorite BTS, routeur, switch et transmission.',
+      'Activer supervision distante et seuils d alerte.',
+    ],
+    operationalRecommendations: [
+      'Configurer mise en veille intelligente des charges non critiques.',
+      'Suivre le performance ratio pendant 7 jours avant validation finale.',
+      'Programmer inspection apres la premiere semaine de fonctionnement.',
+      if (panelCount > 20)
+        'Grand champ PV: renforcer inspection structure/supports.',
+    ],
+    alerts: alerts.isEmpty ? ['Aucune alerte critique detectee.'] : alerts,
+  );
+}
+
 FeasibilityResult calculateFeasibility(
   SiteProfile site,
   List<EquipmentItem> equipment,
@@ -1201,6 +1442,8 @@ class _HomeShellState extends State<HomeShell> {
       const ClientsScreen(),
       const SitesScreen(),
       const SimulationScreen(),
+      const ImplementationScreen(),
+      const MaintenanceScreen(),
       const HistoryScreen(),
       const ProfileScreen(),
     ];
@@ -1234,6 +1477,16 @@ class _HomeShellState extends State<HomeShell> {
             icon: Icon(Icons.calculate_outlined),
             selectedIcon: Icon(Icons.calculate),
             label: 'Calcul',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.engineering_outlined),
+            selectedIcon: Icon(Icons.engineering),
+            label: 'Install',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.monitor_heart_outlined),
+            selectedIcon: Icon(Icons.monitor_heart),
+            label: 'Suivi',
           ),
           NavigationDestination(icon: Icon(Icons.history), label: 'Historique'),
           NavigationDestination(
@@ -2292,6 +2545,366 @@ class ResultScreen extends StatelessWidget {
   }
 }
 
+class ImplementationScreen extends StatefulWidget {
+  const ImplementationScreen({super.key});
+
+  @override
+  State<ImplementationScreen> createState() => _ImplementationScreenState();
+}
+
+class _ImplementationScreenState extends State<ImplementationScreen> {
+  final latitude = TextEditingController(text: '-1.68');
+  final measuredEnergy = TextEditingController(text: '50');
+  final measuredVoltage = TextEditingController(text: '48');
+  final expectedVoltage = TextEditingController(text: '48');
+  final sleepSavings = TextEditingController(text: '8');
+  ImplementationResult? result;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    final latestDesign = state.simulations.isEmpty
+        ? null
+        : state.simulations.first.result;
+    return AppPage(
+      title: 'Implementation',
+      action: IconButton(
+        tooltip: 'Valider',
+        onPressed: () => _validate(state, latestDesign),
+        icon: const Icon(Icons.task_alt),
+      ),
+      children: [
+        NoticeCard(text: academicNotice),
+        InfoCard(
+          icon: Icons.cell_tower,
+          title: state.activeSite.name,
+          subtitle: 'Validation terrain Phase 3',
+          lines: [
+            if (latestDesign != null)
+              '${latestDesign.numberOfPanels} panneaux dimensionnes',
+            '${state.activeSite.solarIrradiationHours} h soleil/jour',
+            '${state.activeSite.systemVoltage} V systeme',
+          ],
+        ),
+        SectionTitle('Orientation et mesures terrain'),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: latitude,
+                label: 'Latitude',
+                icon: Icons.explore_outlined,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppTextField(
+                controller: measuredEnergy,
+                label: 'Prod. mesuree kWh/j',
+                icon: Icons.monitor_heart_outlined,
+              ),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: measuredVoltage,
+                label: 'Tension batt. mesuree',
+                icon: Icons.battery_unknown,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppTextField(
+                controller: expectedVoltage,
+                label: 'Tension attendue',
+                icon: Icons.battery_full,
+              ),
+            ),
+          ],
+        ),
+        AppTextField(
+          controller: sleepSavings,
+          label: 'Gain veille intelligente %',
+          icon: Icons.nightlight_round,
+        ),
+        FilledButton.icon(
+          onPressed: () => _validate(state, latestDesign),
+          icon: const Icon(Icons.rule),
+          label: const Text('Valider installation'),
+        ),
+        if (result != null) ImplementationGrid(result: result!),
+        if (result != null)
+          InfoCard(
+            icon: Icons.compass_calibration_outlined,
+            title: 'Orientation recommandee',
+            subtitle:
+                '${result!.recommendedOrientation}, inclinaison ${result!.recommendedTiltDegrees.toStringAsFixed(1)} degres',
+            lines: [
+              'PR ${(result!.performanceRatio * 100).toStringAsFixed(1)}%',
+              'Ecart ${result!.energyGapKwh.toStringAsFixed(1)} kWh',
+              'Batterie ${result!.batteryVoltageStatus}',
+            ],
+          ),
+        if (result != null) SectionTitle('Checklist installation'),
+        if (result != null)
+          for (final item in result!.installationChecklist)
+            InfoCard(
+              icon: Icons.check_box_outlined,
+              title: item,
+              subtitle: '',
+              lines: const [],
+            ),
+        if (result != null) SectionTitle('Protocole de tests'),
+        if (result != null)
+          for (final item in result!.testProtocol)
+            InfoCard(
+              icon: Icons.science_outlined,
+              title: item,
+              subtitle: '',
+              lines: const [],
+            ),
+        if (result != null) SectionTitle('Alertes et optimisation'),
+        if (result != null)
+          for (final alert in result!.alerts)
+            InfoCard(
+              icon: Icons.warning_amber_outlined,
+              title: alert,
+              subtitle: '',
+              lines: const [],
+            ),
+        if (result != null)
+          for (final item in result!.operationalRecommendations)
+            InfoCard(
+              icon: Icons.tune_outlined,
+              title: item,
+              subtitle: '',
+              lines: const [],
+            ),
+      ],
+    );
+  }
+
+  void _validate(AppState state, SimulationResult? latestDesign) {
+    setState(() {
+      result = state.runImplementation(
+        ImplementationInputs(
+          latitude: readDouble(latitude, -1.68),
+          measuredDailyEnergyKwh: readDouble(measuredEnergy, 50),
+          measuredBatteryVoltage: readDouble(measuredVoltage, 48),
+          expectedBatteryVoltage: readDouble(expectedVoltage, 48),
+          smartSleepSavingsPercent: readDouble(sleepSavings, 8),
+        ),
+        latestDesign,
+      );
+    });
+  }
+}
+
+class MaintenanceScreen extends StatefulWidget {
+  const MaintenanceScreen({super.key});
+
+  @override
+  State<MaintenanceScreen> createState() => _MaintenanceScreenState();
+}
+
+class _MaintenanceScreenState extends State<MaintenanceScreen> {
+  final availability = TextEditingController(text: '99');
+  final performance = TextEditingController(text: '85');
+  final soc = TextEditingController(text: '80');
+  final soh = TextEditingController(text: '92');
+  final cycles = TextEditingController(text: '450');
+  final cleaningDays = TextEditingController(text: '20');
+  final inspectionDays = TextEditingController(text: '45');
+  final dieselAvoided = TextEditingController(text: '4500');
+  final sitesCount = TextEditingController(text: '1');
+  MaintenanceResult? result;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    return AppPage(
+      title: 'Suivi maintenance',
+      action: IconButton(
+        tooltip: 'Evaluer',
+        onPressed: () => _evaluate(state),
+        icon: const Icon(Icons.refresh),
+      ),
+      children: [
+        NoticeCard(text: academicNotice),
+        InfoCard(
+          icon: Icons.assessment_outlined,
+          title: 'KPI de suivi',
+          subtitle: state.activeSite.name,
+          lines: [
+            'Disponibilite',
+            'Performance ratio',
+            'SOC/SOH batterie',
+            'CO2 evite',
+          ],
+        ),
+        SectionTitle('Indicateurs operationnels'),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: availability,
+                label: 'Disponibilite %',
+                icon: Icons.cloud_done_outlined,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppTextField(
+                controller: performance,
+                label: 'Performance ratio %',
+                icon: Icons.speed,
+              ),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: soc,
+                label: 'SOC batterie %',
+                icon: Icons.battery_5_bar,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppTextField(
+                controller: soh,
+                label: 'SOH batterie %',
+                icon: Icons.battery_charging_full,
+              ),
+            ),
+          ],
+        ),
+        AppTextField(
+          controller: cycles,
+          label: 'Cycles batterie',
+          icon: Icons.loop,
+        ),
+        SectionTitle('Maintenance preventive'),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: cleaningDays,
+                label: 'Jours depuis nettoyage',
+                icon: Icons.cleaning_services_outlined,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppTextField(
+                controller: inspectionDays,
+                label: 'Jours depuis inspection',
+                icon: Icons.fact_check_outlined,
+              ),
+            ),
+          ],
+        ),
+        SectionTitle('Valorisation'),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: dieselAvoided,
+                label: 'Diesel evite L/an',
+                icon: Icons.local_gas_station_outlined,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppTextField(
+                controller: sitesCount,
+                label: 'Sites generalisables',
+                icon: Icons.hub_outlined,
+              ),
+            ),
+          ],
+        ),
+        FilledButton.icon(
+          onPressed: () => _evaluate(state),
+          icon: const Icon(Icons.monitor_heart_outlined),
+          label: const Text('Evaluer le suivi'),
+        ),
+        if (result != null) MaintenanceGrid(result: result!),
+        if (result != null)
+          InfoCard(
+            icon: Icons.health_and_safety_outlined,
+            title: 'Etat global ${result!.healthScore}/100',
+            subtitle:
+                'Disponibilite ${result!.availabilityStatus} - Energie ${result!.energyStatus} - Batterie ${result!.batteryStatus}',
+            lines: [
+              'CO2 ${(result!.co2AvoidedKgPerYear / 1000).toStringAsFixed(2)} t/an',
+              'Reseau ${(result!.networkCo2PotentialKgPerYear / 1000).toStringAsFixed(2)} t/an',
+            ],
+          ),
+        if (result != null) SectionTitle('Planning maintenance'),
+        if (result != null)
+          for (final task in result!.maintenanceTasks)
+            InfoCard(
+              icon: Icons.event_available_outlined,
+              title: task,
+              subtitle: '',
+              lines: const [],
+            ),
+        if (result != null) SectionTitle('Alertes'),
+        if (result != null)
+          for (final alert in result!.alerts)
+            InfoCard(
+              icon: Icons.notification_important_outlined,
+              title: alert,
+              subtitle: '',
+              lines: const [],
+            ),
+        if (result != null) SectionTitle('KPI mensuels'),
+        if (result != null)
+          for (final kpi in result!.kpis)
+            InfoCard(
+              icon: Icons.query_stats_outlined,
+              title: kpi,
+              subtitle: '',
+              lines: const [],
+            ),
+        if (result != null) SectionTitle('Valorisation projet'),
+        if (result != null)
+          for (final point in result!.valorizationPoints)
+            InfoCard(
+              icon: Icons.eco_outlined,
+              title: point,
+              subtitle: '',
+              lines: const [],
+            ),
+      ],
+    );
+  }
+
+  void _evaluate(AppState state) {
+    setState(() {
+      result = state.runMaintenance(
+        MaintenanceInputs(
+          availabilityPercent: readDouble(availability, 99),
+          performanceRatio: readDouble(performance, 85) / 100,
+          batterySocPercent: readDouble(soc, 80),
+          batterySohPercent: readDouble(soh, 92),
+          batteryCycles: readDouble(cycles, 450).round(),
+          daysSincePanelCleaning: readDouble(cleaningDays, 20).round(),
+          daysSinceElectricalInspection: readDouble(inspectionDays, 45).round(),
+          annualDieselLitersAvoided: readDouble(dieselAvoided, 4500),
+          sitesReplicableCount: readDouble(sitesCount, 1).round(),
+        ),
+      );
+    });
+  }
+}
+
 class HistoryScreen extends StatelessWidget {
   const HistoryScreen({this.asPage = false, super.key});
 
@@ -2622,6 +3235,90 @@ class AppPage extends StatelessWidget {
           itemCount: children.length,
         ),
       ),
+    );
+  }
+}
+
+class ImplementationGrid extends StatelessWidget {
+  const ImplementationGrid({required this.result, super.key});
+
+  final ImplementationResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = [
+      (
+        'Production theorique',
+        '${result.theoreticalDailyEnergyKwh.toStringAsFixed(1)} kWh/j',
+        Icons.solar_power,
+      ),
+      (
+        'Performance ratio',
+        '${(result.performanceRatio * 100).toStringAsFixed(1)}%',
+        Icons.speed,
+      ),
+      (
+        'Ecart energie',
+        '${result.energyGapKwh.toStringAsFixed(1)} kWh',
+        Icons.compare_arrows,
+      ),
+      (
+        'Charge optimisee',
+        '${result.optimizedLoadPowerWatts.toStringAsFixed(0)} W',
+        Icons.energy_savings_leaf_outlined,
+      ),
+    ];
+    return GridView.count(
+      crossAxisCount: MediaQuery.sizeOf(context).width > 700 ? 4 : 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.35,
+      children: [
+        for (final row in rows)
+          StatCard(label: row.$1, value: row.$2, icon: row.$3),
+      ],
+    );
+  }
+}
+
+class MaintenanceGrid extends StatelessWidget {
+  const MaintenanceGrid({required this.result, super.key});
+
+  final MaintenanceResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = [
+      ('Sante', '${result.healthScore}/100', Icons.health_and_safety_outlined),
+      (
+        'Nettoyage',
+        '${result.nextPanelCleaningDays} j',
+        Icons.cleaning_services_outlined,
+      ),
+      (
+        'Inspection',
+        '${result.nextElectricalInspectionDays} j',
+        Icons.fact_check_outlined,
+      ),
+      (
+        'CO2 evite',
+        '${(result.co2AvoidedKgPerYear / 1000).toStringAsFixed(1)} t/an',
+        Icons.eco_outlined,
+      ),
+    ];
+    return GridView.count(
+      crossAxisCount: MediaQuery.sizeOf(context).width > 700 ? 4 : 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.35,
+      children: [
+        for (final row in rows)
+          StatCard(label: row.$1, value: row.$2, icon: row.$3),
+      ],
     );
   }
 }

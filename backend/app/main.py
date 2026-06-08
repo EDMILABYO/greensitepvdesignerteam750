@@ -8,6 +8,8 @@ from app.routes import (
     design_routes,
     equipment_routes,
     feasibility_routes,
+    implementation_routes,
+    maintenance_routes,
     simulation_routes,
     site_routes,
 )
@@ -33,6 +35,8 @@ app.include_router(auth_routes.router)
 app.include_router(client_routes.router)
 app.include_router(design_routes.router)
 app.include_router(feasibility_routes.router)
+app.include_router(implementation_routes.router)
+app.include_router(maintenance_routes.router)
 app.include_router(site_routes.router)
 app.include_router(equipment_routes.router)
 app.include_router(simulation_routes.router)
