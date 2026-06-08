@@ -62,3 +62,29 @@ L'application contient un mode demo local: si l'API n'est pas joignable au momen
 - Regulateur : `puissance PV / tension x 1.25`.
 - Onduleur : `puissance totale x 1.25`.
 - Cout total : panneaux + batteries + regulateur + onduleur + accessoires + main d'oeuvre + maintenance.
+
+## Phase 1 - Faisabilite
+
+Le module Audit calcule maintenant :
+
+- profil de charge journalier et energie annuelle ;
+- consommation diesel annuelle estimee ;
+- OPEX diesel annuel ;
+- TCO diesel vs TCO solaire sur 20 ans ;
+- retour sur investissement ;
+- CO2 evite ;
+- score et verdict de faisabilite.
+
+## Phase 2 - Conception et Dimensionnement
+
+Le module Conception PV inclut maintenant :
+
+- choix technologie panneau : monocristallin, polycristallin, bifacial ;
+- choix technologie batterie : LiFePO4, plomb-carbone, plomb-acide ;
+- choix regulateur MPPT ou PWM ;
+- rendement MPPT et rendement onduleur ;
+- pertes cables, temperature et poussiere ;
+- facteur de securite configurable ;
+- architecture recommandee ;
+- protections DC/AC recommandees ;
+- resultats de dimensionnement panneaux, batteries, regulateur et onduleur.

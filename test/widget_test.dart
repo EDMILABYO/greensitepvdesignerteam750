@@ -12,7 +12,7 @@ void main() {
 
     expect(result.totalPowerWatts, 1750);
     expect(result.dailyEnergyWh, 35600);
-    expect(result.numberOfPanels, 17);
+    expect(result.numberOfPanels, 26);
     expect(result.numberOfBatteries, 10);
   });
 }

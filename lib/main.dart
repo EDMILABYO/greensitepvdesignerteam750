@@ -256,6 +256,10 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  FeasibilityResult runFeasibility(FeasibilityInputs inputs) {
+    return calculateFeasibility(activeSite, equipment, inputs);
+  }
+
   SimulationRecord runSimulation(SimulationInputs inputs) {
     final result = calculate(activeSite, equipment, inputs);
     final record = SimulationRecord(
@@ -651,9 +655,18 @@ class EquipmentItem {
 class SimulationInputs {
   const SimulationInputs({
     this.panelPowerWatts = 550,
+    this.panelTechnology = 'Monocristallin',
     this.batteryCapacityAh = 200,
     this.batteryVoltage = 12,
+    this.batteryTechnology = 'LiFePO4',
     this.batteryDod = 0.8,
+    this.controllerType = 'MPPT',
+    this.mpptEfficiency = 0.96,
+    this.wiringLossPercent = 3,
+    this.temperatureLossPercent = 5,
+    this.dustLossPercent = 3,
+    this.inverterEfficiency = 0.93,
+    this.safetyFactor = 1.25,
     this.panelUnitPrice = 150,
     this.batteryUnitPrice = 250,
     this.inverterPrice = 500,
@@ -664,9 +677,18 @@ class SimulationInputs {
   });
 
   final double panelPowerWatts;
+  final String panelTechnology;
   final double batteryCapacityAh;
   final double batteryVoltage;
+  final String batteryTechnology;
   final double batteryDod;
+  final String controllerType;
+  final double mpptEfficiency;
+  final double wiringLossPercent;
+  final double temperatureLossPercent;
+  final double dustLossPercent;
+  final double inverterEfficiency;
+  final double safetyFactor;
   final double panelUnitPrice;
   final double batteryUnitPrice;
   final double inverterPrice;
@@ -689,6 +711,9 @@ class SimulationResult {
     required this.controllerCurrentA,
     required this.inverterPowerWatts,
     required this.totalCost,
+    required this.globalEfficiency,
+    required this.selectedArchitecture,
+    required this.protections,
     required this.recommendations,
   });
 
@@ -703,6 +728,9 @@ class SimulationResult {
   final double controllerCurrentA;
   final double inverterPowerWatts;
   final double totalCost;
+  final double globalEfficiency;
+  final String selectedArchitecture;
+  final List<String> protections;
   final List<String> recommendations;
 }
 
@@ -738,6 +766,112 @@ class DashboardStats {
   final double averageBatteryCapacityAh;
 }
 
+class FeasibilityInputs {
+  const FeasibilityInputs({
+    this.averageGhiKwhM2Day = 5,
+    this.dieselLitersPerKwh = 0.35,
+    this.dieselPricePerLiter = 1.5,
+    this.generatorMaintenancePerYear = 1200,
+    this.solarCapex = 6500,
+    this.solarOpexPerYear = 350,
+    this.studyYears = 20,
+    this.co2KgPerLiter = 2.68,
+    this.logisticsFactor = 1.15,
+  });
+
+  final double averageGhiKwhM2Day;
+  final double dieselLitersPerKwh;
+  final double dieselPricePerLiter;
+  final double generatorMaintenancePerYear;
+  final double solarCapex;
+  final double solarOpexPerYear;
+  final int studyYears;
+  final double co2KgPerLiter;
+  final double logisticsFactor;
+}
+
+class FeasibilityResult {
+  const FeasibilityResult({
+    required this.annualEnergyKwh,
+    required this.annualDieselLiters,
+    required this.annualDieselOpex,
+    required this.dieselTco,
+    required this.solarTco,
+    required this.annualSavings,
+    required this.paybackYears,
+    required this.co2AvoidedKgPerYear,
+    required this.feasibilityScore,
+    required this.verdict,
+    required this.recommendations,
+  });
+
+  final double annualEnergyKwh;
+  final double annualDieselLiters;
+  final double annualDieselOpex;
+  final double dieselTco;
+  final double solarTco;
+  final double annualSavings;
+  final double? paybackYears;
+  final double co2AvoidedKgPerYear;
+  final int feasibilityScore;
+  final String verdict;
+  final List<String> recommendations;
+}
+
+FeasibilityResult calculateFeasibility(
+  SiteProfile site,
+  List<EquipmentItem> equipment,
+  FeasibilityInputs inputs,
+) {
+  final dailyEnergyWh = equipment.fold<double>(
+    0,
+    (sum, item) => sum + item.powerWatts * item.quantity * item.hoursPerDay,
+  );
+  final annualEnergyKwh = dailyEnergyWh * 365 / 1000;
+  final annualDieselLiters = annualEnergyKwh * inputs.dieselLitersPerKwh;
+  final annualDieselOpex =
+      annualDieselLiters * inputs.dieselPricePerLiter * inputs.logisticsFactor +
+      inputs.generatorMaintenancePerYear;
+  final dieselTco = annualDieselOpex * inputs.studyYears;
+  final solarTco =
+      inputs.solarCapex + inputs.solarOpexPerYear * inputs.studyYears;
+  final annualSavings = max(0, annualDieselOpex - inputs.solarOpexPerYear);
+  final paybackYears = annualSavings > 0
+      ? inputs.solarCapex / annualSavings
+      : null;
+  final co2Avoided = annualDieselLiters * inputs.co2KgPerLiter;
+  var score = 40;
+  if (inputs.averageGhiKwhM2Day >= 4.5) score += 20;
+  if (annualSavings > 0) score += 20;
+  if (paybackYears != null && paybackYears <= 5) score += 10;
+  if (solarTco < dieselTco) score += 10;
+  score = min(score, 100);
+  final recommendations = <String>[
+    'Valider les charges BTS/IP sur une semaine type.',
+    'Confirmer le GHI mensuel de ${site.city} avant achat materiel.',
+    'Comparer CAPEX solaire et OPEX diesel sur ${inputs.studyYears} ans.',
+    if (inputs.averageGhiKwhM2Day < 4)
+      'GHI faible: prevoir une marge PV ou une hybridation.',
+    if (paybackYears != null && paybackYears > 7)
+      'ROI long: optimiser cout panneaux/batteries ou maintenance.',
+    if (co2Avoided > 10000)
+      'Fort potentiel CO2 a valoriser dans le rapport RSE.',
+  ];
+  return FeasibilityResult(
+    annualEnergyKwh: annualEnergyKwh,
+    annualDieselLiters: annualDieselLiters,
+    annualDieselOpex: annualDieselOpex,
+    dieselTco: dieselTco,
+    solarTco: solarTco,
+    annualSavings: annualSavings.toDouble(),
+    paybackYears: paybackYears,
+    co2AvoidedKgPerYear: co2Avoided,
+    feasibilityScore: score,
+    verdict: score >= 70 ? 'Favorable' : 'A approfondir',
+    recommendations: recommendations,
+  );
+}
+
 SimulationResult calculate(
   SiteProfile site,
   List<EquipmentItem> equipment,
@@ -751,14 +885,28 @@ SimulationResult calculate(
     0,
     (sum, item) => sum + item.powerWatts * item.quantity * item.hoursPerDay,
   );
-  final correctedEnergy = dailyEnergy / site.systemEfficiency;
-  final pvPower = correctedEnergy / site.solarIrradiationHours;
+  final lossFactor =
+      1 -
+      (inputs.wiringLossPercent +
+              inputs.temperatureLossPercent +
+              inputs.dustLossPercent) /
+          100;
+  final globalEfficiency = max(
+    0.1,
+    site.systemEfficiency *
+        lossFactor *
+        inputs.mpptEfficiency *
+        inputs.inverterEfficiency,
+  );
+  final correctedEnergy = dailyEnergy / globalEfficiency;
+  final pvPower =
+      correctedEnergy / site.solarIrradiationHours * inputs.safetyFactor;
   final panels = max(1, (pvPower / inputs.panelPowerWatts).ceil());
   final batteryWh = dailyEnergy * site.autonomyDays;
   final batteryAh = (batteryWh / site.systemVoltage) / inputs.batteryDod;
   final batteries = max(1, (batteryAh / inputs.batteryCapacityAh).ceil());
-  final controller = (pvPower / site.systemVoltage) * 1.25;
-  final inverter = totalPower * 1.25;
+  final controller = (pvPower / site.systemVoltage) * inputs.safetyFactor;
+  final inverter = totalPower * inputs.safetyFactor;
   final totalCost =
       panels * inputs.panelUnitPrice +
       batteries * inputs.batteryUnitPrice +
@@ -768,9 +916,16 @@ SimulationResult calculate(
       inputs.laborPrice +
       inputs.maintenancePrice;
   final recommendations = <String>[
-    "Verifier l'orientation des panneaux, les protections et la ventilation des batteries.",
+    "Technologie panneau: ${inputs.panelTechnology}.",
+    "Technologie batterie: ${inputs.batteryTechnology}.",
+    "Regulateur recommande: ${inputs.controllerType}.",
+    "Prevoir un EMS pour prioriser les charges BTS/IP critiques.",
     if (dailyEnergy > 30000)
       "Consommation elevee: optimiser les equipements telecom.",
+    if (inputs.controllerType != 'MPPT')
+      "Passer en MPPT pour maximiser l'extraction d'energie.",
+    if (inputs.batteryTechnology == 'Plomb-acide' && inputs.batteryDod > 0.5)
+      "Pour le plomb-acide, limiter le DOD a 50%.",
     if (site.autonomyDays > 3)
       "Autonomie superieure a 3 jours: cout fortement accru.",
     if (site.systemEfficiency < 0.7)
@@ -780,6 +935,15 @@ SimulationResult calculate(
     if (batteryAh > 1200)
       "Batteries importantes: envisager une solution hybride solaire + groupe.",
   ];
+  final protections = <String>[
+    'Disjoncteur DC entre champ PV et regulateur',
+    'Fusibles batterie dimensionnes au courant maximal',
+    'Parafoudre DC/AC et mise a la terre',
+    'Section de cable limitee a ${inputs.wiringLossPercent.toStringAsFixed(1)}% de pertes',
+  ];
+  final architecture = site.systemVoltage >= 48
+      ? 'PV + batteries + regulateur ${inputs.controllerType} + bus DC 48V + onduleur secouru'
+      : 'PV + batteries + regulateur ${inputs.controllerType} + onduleur AC';
 
   return SimulationResult(
     totalPowerWatts: totalPower,
@@ -793,6 +957,9 @@ SimulationResult calculate(
     controllerCurrentA: controller,
     inverterPowerWatts: inverter,
     totalCost: totalCost,
+    globalEfficiency: globalEfficiency,
+    selectedArchitecture: architecture,
+    protections: protections,
     recommendations: recommendations,
   );
 }
@@ -1030,6 +1197,7 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final pages = [
       const DashboardScreen(),
+      const AuditScreen(),
       const ClientsScreen(),
       const SitesScreen(),
       const SimulationScreen(),
@@ -1046,6 +1214,11 @@ class _HomeShellState extends State<HomeShell> {
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard),
             label: 'Tableau',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.fact_check_outlined),
+            selectedIcon: Icon(Icons.fact_check),
+            label: 'Audit',
           ),
           NavigationDestination(
             icon: Icon(Icons.groups_outlined),
@@ -1157,6 +1330,175 @@ class DashboardScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class AuditScreen extends StatefulWidget {
+  const AuditScreen({super.key});
+
+  @override
+  State<AuditScreen> createState() => _AuditScreenState();
+}
+
+class _AuditScreenState extends State<AuditScreen> {
+  final ghi = TextEditingController(text: '5');
+  final dieselRate = TextEditingController(text: '0.35');
+  final dieselPrice = TextEditingController(text: '1.5');
+  final generatorMaintenance = TextEditingController(text: '1200');
+  final solarCapex = TextEditingController(text: '6500');
+  final solarOpex = TextEditingController(text: '350');
+  final years = TextEditingController(text: '20');
+  final logistics = TextEditingController(text: '115');
+  FeasibilityResult? result;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    final dailyEnergy = state.equipment.fold<double>(
+      0,
+      (sum, item) => sum + item.powerWatts * item.quantity * item.hoursPerDay,
+    );
+    return AppPage(
+      title: 'Audit faisabilite',
+      action: IconButton(
+        tooltip: 'Recalculer',
+        onPressed: () => _calculate(state),
+        icon: const Icon(Icons.refresh),
+      ),
+      children: [
+        NoticeCard(text: academicNotice),
+        InfoCard(
+          icon: Icons.electrical_services,
+          title: 'Profil de charge actuel',
+          subtitle: state.activeSite.name,
+          lines: [
+            '${state.equipment.length} equipements',
+            '${(dailyEnergy / 1000).toStringAsFixed(2)} kWh/jour',
+            '${state.activeSite.operatingHoursPerDay.toStringAsFixed(0)} h/jour',
+          ],
+        ),
+        SectionTitle('Gisement solaire et diesel'),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: ghi,
+                label: 'GHI kWh/m2/j',
+                icon: Icons.wb_sunny_outlined,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppTextField(
+                controller: dieselRate,
+                label: 'L diesel/kWh',
+                icon: Icons.local_gas_station_outlined,
+              ),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: dieselPrice,
+                label: 'Prix diesel USD/L',
+                icon: Icons.attach_money,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppTextField(
+                controller: logistics,
+                label: 'Logistique %',
+                icon: Icons.local_shipping_outlined,
+              ),
+            ),
+          ],
+        ),
+        SectionTitle('Comparaison TCO'),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: solarCapex,
+                label: 'CAPEX solaire USD',
+                icon: Icons.solar_power,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppTextField(
+                controller: solarOpex,
+                label: 'OPEX solaire/an',
+                icon: Icons.build_outlined,
+              ),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: generatorMaintenance,
+                label: 'Maintenance diesel/an',
+                icon: Icons.engineering_outlined,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppTextField(
+                controller: years,
+                label: 'Periode annees',
+                icon: Icons.timeline,
+              ),
+            ),
+          ],
+        ),
+        FilledButton.icon(
+          onPressed: () => _calculate(state),
+          icon: const Icon(Icons.analytics_outlined),
+          label: const Text('Analyser la faisabilite'),
+        ),
+        if (result != null) FeasibilityGrid(result: result!),
+        if (result != null)
+          InfoCard(
+            icon: Icons.verified_outlined,
+            title: 'Verdict: ${result!.verdict}',
+            subtitle: 'Score de faisabilite ${result!.feasibilityScore}/100',
+            lines: [
+              'ROI: ${result!.paybackYears?.toStringAsFixed(1) ?? '-'} ans',
+              'CO2 evite: ${(result!.co2AvoidedKgPerYear / 1000).toStringAsFixed(1)} t/an',
+            ],
+          ),
+        if (result != null) SectionTitle('Recommandations Phase 1'),
+        if (result != null)
+          for (final item in result!.recommendations)
+            InfoCard(
+              icon: Icons.check_circle_outline,
+              title: item,
+              subtitle: '',
+              lines: const [],
+            ),
+      ],
+    );
+  }
+
+  void _calculate(AppState state) {
+    setState(() {
+      result = state.runFeasibility(
+        FeasibilityInputs(
+          averageGhiKwhM2Day: readDouble(ghi, 5),
+          dieselLitersPerKwh: readDouble(dieselRate, 0.35),
+          dieselPricePerLiter: readDouble(dieselPrice, 1.5),
+          generatorMaintenancePerYear: readDouble(generatorMaintenance, 1200),
+          solarCapex: readDouble(solarCapex, 6500),
+          solarOpexPerYear: readDouble(solarOpex, 350),
+          studyYears: readDouble(years, 20).round(),
+          logisticsFactor: readDouble(logistics, 115) / 100,
+        ),
+      );
+    });
   }
 }
 
@@ -1629,19 +1971,83 @@ class _SimulationScreenState extends State<SimulationScreen> {
   final batteryAh = TextEditingController(text: '200');
   final batteryVoltage = TextEditingController(text: '12');
   final dod = TextEditingController(text: '80');
+  final mpptEfficiency = TextEditingController(text: '96');
+  final wiringLoss = TextEditingController(text: '3');
+  final temperatureLoss = TextEditingController(text: '5');
+  final dustLoss = TextEditingController(text: '3');
+  final inverterEfficiency = TextEditingController(text: '93');
+  final safetyFactor = TextEditingController(text: '125');
   final panelPrice = TextEditingController(text: '150');
   final batteryPrice = TextEditingController(text: '250');
   final inverter = TextEditingController(text: '500');
   final controller = TextEditingController(text: '300');
   final accessories = TextEditingController(text: '400');
   final labor = TextEditingController(text: '500');
+  String panelTechnology = 'Monocristallin';
+  String batteryTechnology = 'LiFePO4';
+  String controllerType = 'MPPT';
 
   @override
   Widget build(BuildContext context) {
     return AppPage(
-      title: 'Parametres simulation',
+      title: 'Conception PV',
       showBack: widget.asPage,
       children: [
+        SectionTitle('Choix technologiques'),
+        DropdownButtonFormField<String>(
+          initialValue: panelTechnology,
+          decoration: const InputDecoration(
+            labelText: 'Technologie panneau',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.solar_power),
+          ),
+          items: const [
+            DropdownMenuItem(
+              value: 'Monocristallin',
+              child: Text('Monocristallin'),
+            ),
+            DropdownMenuItem(
+              value: 'Polycristallin',
+              child: Text('Polycristallin'),
+            ),
+            DropdownMenuItem(value: 'Bifacial', child: Text('Bifacial')),
+          ],
+          onChanged: (value) =>
+              setState(() => panelTechnology = value ?? panelTechnology),
+        ),
+        DropdownButtonFormField<String>(
+          initialValue: batteryTechnology,
+          decoration: const InputDecoration(
+            labelText: 'Technologie batterie',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.battery_charging_full),
+          ),
+          items: const [
+            DropdownMenuItem(value: 'LiFePO4', child: Text('LiFePO4')),
+            DropdownMenuItem(
+              value: 'Plomb-carbone',
+              child: Text('Plomb-carbone'),
+            ),
+            DropdownMenuItem(value: 'Plomb-acide', child: Text('Plomb-acide')),
+          ],
+          onChanged: (value) =>
+              setState(() => batteryTechnology = value ?? batteryTechnology),
+        ),
+        DropdownButtonFormField<String>(
+          initialValue: controllerType,
+          decoration: const InputDecoration(
+            labelText: 'Regulateur',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.settings_input_component),
+          ),
+          items: const [
+            DropdownMenuItem(value: 'MPPT', child: Text('MPPT')),
+            DropdownMenuItem(value: 'PWM', child: Text('PWM')),
+          ],
+          onChanged: (value) =>
+              setState(() => controllerType = value ?? controllerType),
+        ),
+        SectionTitle('Dimensionnement materiel'),
         Row(
           children: [
             Expanded(
@@ -1661,6 +2067,65 @@ class _SimulationScreenState extends State<SimulationScreen> {
             ),
           ],
         ),
+        SectionTitle('Pertes et marges'),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: mpptEfficiency,
+                label: 'Rendement MPPT %',
+                icon: Icons.speed,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppTextField(
+                controller: inverterEfficiency,
+                label: 'Rend. onduleur %',
+                icon: Icons.power,
+              ),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: wiringLoss,
+                label: 'Pertes cables %',
+                icon: Icons.cable,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppTextField(
+                controller: temperatureLoss,
+                label: 'Pertes temperature %',
+                icon: Icons.thermostat,
+              ),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: dustLoss,
+                label: 'Pertes poussiere %',
+                icon: Icons.blur_on,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppTextField(
+                controller: safetyFactor,
+                label: 'Marge securite %',
+                icon: Icons.health_and_safety_outlined,
+              ),
+            ),
+          ],
+        ),
+        SectionTitle('Couts unitaires'),
         Row(
           children: [
             Expanded(
@@ -1742,9 +2207,18 @@ class _SimulationScreenState extends State<SimulationScreen> {
             final record = AppScope.of(context).runSimulation(
               SimulationInputs(
                 panelPowerWatts: readDouble(panel, 550),
+                panelTechnology: panelTechnology,
                 batteryCapacityAh: readDouble(batteryAh, 200),
                 batteryVoltage: readDouble(batteryVoltage, 12),
+                batteryTechnology: batteryTechnology,
                 batteryDod: readDouble(dod, 80) / 100,
+                controllerType: controllerType,
+                mpptEfficiency: readDouble(mpptEfficiency, 96) / 100,
+                wiringLossPercent: readDouble(wiringLoss, 3),
+                temperatureLossPercent: readDouble(temperatureLoss, 5),
+                dustLossPercent: readDouble(dustLoss, 3),
+                inverterEfficiency: readDouble(inverterEfficiency, 93) / 100,
+                safetyFactor: readDouble(safetyFactor, 125) / 100,
                 panelUnitPrice: readDouble(panelPrice, 150),
                 batteryUnitPrice: readDouble(batteryPrice, 250),
                 inverterPrice: readDouble(inverter, 500),
@@ -1777,6 +2251,22 @@ class ResultScreen extends StatelessWidget {
       title: 'Resultats',
       children: [
         ResultGrid(result: r),
+        InfoCard(
+          icon: Icons.account_tree_outlined,
+          title: 'Architecture recommandee',
+          subtitle: r.selectedArchitecture,
+          lines: [
+            'Rendement global ${(r.globalEfficiency * 100).toStringAsFixed(1)}%',
+          ],
+        ),
+        SectionTitle('Protections electriques'),
+        for (final protection in r.protections)
+          InfoCard(
+            icon: Icons.shield_outlined,
+            title: protection,
+            subtitle: '',
+            lines: const [],
+          ),
         Text(
           'Recommandations',
           style: Theme.of(
@@ -1903,6 +2393,24 @@ class ReportScreen extends StatelessWidget {
         const Text('- Regulateur et onduleur avec marge de 25%'),
         const SizedBox(height: 8),
         ResultGrid(result: record.result),
+        InfoCard(
+          icon: Icons.account_tree_outlined,
+          title: 'Architecture retenue',
+          subtitle: record.result.selectedArchitecture,
+          lines: [
+            'Rendement global ${(record.result.globalEfficiency * 100).toStringAsFixed(1)}%',
+            record.inputs.panelTechnology,
+            record.inputs.batteryTechnology,
+          ],
+        ),
+        Text(
+          'Protections',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        for (final protection in record.result.protections)
+          Text('- $protection'),
         FilledButton.icon(
           onPressed: () => copyReport(context, record),
           icon: const Icon(Icons.copy_all_outlined),
@@ -2009,6 +2517,65 @@ class ResultGrid extends StatelessWidget {
         '${result.totalCost.toStringAsFixed(0)} USD',
         Icons.payments_outlined,
       ),
+      (
+        'Rendement global',
+        '${(result.globalEfficiency * 100).toStringAsFixed(1)}%',
+        Icons.speed,
+      ),
+    ];
+    return GridView.count(
+      crossAxisCount: MediaQuery.sizeOf(context).width > 700 ? 3 : 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.35,
+      children: [
+        for (final row in rows)
+          StatCard(label: row.$1, value: row.$2, icon: row.$3),
+      ],
+    );
+  }
+}
+
+class FeasibilityGrid extends StatelessWidget {
+  const FeasibilityGrid({required this.result, super.key});
+
+  final FeasibilityResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = [
+      (
+        'Energie annuelle',
+        '${result.annualEnergyKwh.toStringAsFixed(0)} kWh',
+        Icons.bolt,
+      ),
+      (
+        'Diesel/an',
+        '${result.annualDieselLiters.toStringAsFixed(0)} L',
+        Icons.local_gas_station,
+      ),
+      (
+        'OPEX diesel/an',
+        '${result.annualDieselOpex.toStringAsFixed(0)} USD',
+        Icons.payments_outlined,
+      ),
+      (
+        'TCO diesel',
+        '${result.dieselTco.toStringAsFixed(0)} USD',
+        Icons.trending_up,
+      ),
+      (
+        'TCO solaire',
+        '${result.solarTco.toStringAsFixed(0)} USD',
+        Icons.solar_power,
+      ),
+      (
+        'Economies/an',
+        '${result.annualSavings.toStringAsFixed(0)} USD',
+        Icons.savings_outlined,
+      ),
     ];
     return GridView.count(
       crossAxisCount: MediaQuery.sizeOf(context).width > 700 ? 3 : 2,
@@ -2054,6 +2621,23 @@ class AppPage extends StatelessWidget {
           separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemCount: children.length,
         ),
+      ),
+    );
+  }
+}
+
+class SectionTitle extends StatelessWidget {
+  const SectionTitle(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w800,
+        color: Theme.of(context).colorScheme.secondary,
       ),
     );
   }
@@ -2250,6 +2834,7 @@ String buildReportText(SimulationRecord record) {
   final recommendations = result.recommendations
       .map((item) => '- $item')
       .join('\n');
+  final protections = result.protections.map((item) => '- $item').join('\n');
   return '''
 GreenSite PV Simulator
 $academicNotice
@@ -2258,6 +2843,13 @@ Site
 ${record.site.name}
 ${record.site.city}, ${record.site.country}
 ${record.site.siteType}
+
+Choix technologiques
+Panneau: ${record.inputs.panelTechnology}
+Batterie: ${record.inputs.batteryTechnology}
+Regulateur: ${record.inputs.controllerType}
+Rendement global: ${(result.globalEfficiency * 100).toStringAsFixed(1)}%
+Architecture: ${result.selectedArchitecture}
 
 Equipements
 $equipment
@@ -2273,6 +2865,9 @@ Batteries: ${result.numberOfBatteries}
 Regulateur: ${result.controllerCurrentA.toStringAsFixed(1)} A
 Onduleur: ${result.inverterPowerWatts.toStringAsFixed(0)} W
 Cout total: ${result.totalCost.toStringAsFixed(0)} USD
+
+Protections
+$protections
 
 Recommandations
 $recommendations

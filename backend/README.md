@@ -21,6 +21,8 @@ copy .env.example .env
 - `GET /clients`
 - `PUT /clients/{client_id}`
 - `DELETE /clients/{client_id}`
+- `POST /feasibility/calculate`
+- `POST /design/calculate`
 - `POST /sites`
 - `GET /sites`
 - `POST /sites/{site_id}/equipment`
