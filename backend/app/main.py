@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import create_db_and_tables
 from app.routes import (
+    admin_routes,
     auth_routes,
     client_routes,
     design_routes,
@@ -32,6 +33,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_routes.router)
+app.include_router(admin_routes.router)
 app.include_router(client_routes.router)
 app.include_router(design_routes.router)
 app.include_router(feasibility_routes.router)

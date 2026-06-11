@@ -4,18 +4,28 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 void main() => runApp(const GreenSiteApp());
 
 const academicNotice =
     "Les donnees utilisees dans cette application sont simulees et destinees uniquement a un usage academique.";
-const appGreen = Color(0xFF0B8F6F);
-const appGreenDark = Color(0xFF075A4B);
-const appNavy = Color(0xFF123047);
+const landingForest = Color(0xFF082F28);
+const landingForestMid = Color(0xFF0C4A38);
+const landingForestDeep = Color(0xFF082B24);
+const landingGreen = Color(0xFF63B642);
+const landingGreenLight = Color(0xFF7FC84A);
+const appForest = Color(0xFF082F28);
+const appForestMid = Color(0xFF0C4A38);
+const appForestDeep = Color(0xFF082B24);
+const appGreen = Color(0xFF63B642);
+const appGreenDark = Color(0xFF0B5D43);
+const appGreenLight = Color(0xFF7FC84A);
+const appNavy = Color(0xFF102B24);
 const appAmber = Color(0xFFF5B942);
 const appSurface = Color(0xFFFFFFFF);
-const appBackground = Color(0xFFF2F6F4);
-const appMutedText = Color(0xFF65747D);
+const appBackground = Color(0xFFF6FAF7);
+const appMutedText = Color(0xFF5E7068);
 
 class GreenSiteApp extends StatefulWidget {
   const GreenSiteApp({super.key});
@@ -39,15 +49,15 @@ class _GreenSiteAppState extends State<GreenSiteApp> {
           colorScheme: ColorScheme.fromSeed(
             seedColor: appGreen,
             primary: appGreen,
-            secondary: appNavy,
+            secondary: appGreenLight,
             tertiary: appAmber,
             surface: appSurface,
-            surfaceContainerHighest: const Color(0xFFE4ECE8),
+            surfaceContainerHighest: const Color(0xFFDDEBE2),
           ),
           scaffoldBackgroundColor: appBackground,
           appBarTheme: const AppBarTheme(
             centerTitle: false,
-            backgroundColor: appBackground,
+            backgroundColor: appSurface,
             foregroundColor: appNavy,
             elevation: 0,
             scrolledUnderElevation: 0,
@@ -55,7 +65,7 @@ class _GreenSiteAppState extends State<GreenSiteApp> {
           navigationBarTheme: NavigationBarThemeData(
             height: 72,
             backgroundColor: appSurface,
-            indicatorColor: appGreen.withValues(alpha: 0.14),
+            indicatorColor: appGreen.withValues(alpha: 0.18),
             labelTextStyle: WidgetStateProperty.resolveWith(
               (states) => TextStyle(
                 color: states.contains(WidgetState.selected)
@@ -70,8 +80,9 @@ class _GreenSiteAppState extends State<GreenSiteApp> {
           ),
           navigationRailTheme: NavigationRailThemeData(
             backgroundColor: appSurface,
-            indicatorColor: appGreen.withValues(alpha: 0.14),
+            indicatorColor: appGreen.withValues(alpha: 0.18),
             selectedIconTheme: const IconThemeData(color: appGreenDark),
+            unselectedIconTheme: const IconThemeData(color: appMutedText),
             selectedLabelTextStyle: const TextStyle(
               color: appGreenDark,
               fontWeight: FontWeight.w800,
@@ -91,9 +102,9 @@ class _GreenSiteAppState extends State<GreenSiteApp> {
           ),
           outlinedButtonTheme: OutlinedButtonThemeData(
             style: OutlinedButton.styleFrom(
-              foregroundColor: appGreenDark,
+              foregroundColor: appGreenLight,
               minimumSize: const Size(48, 48),
-              side: BorderSide(color: appGreen.withValues(alpha: 0.35)),
+              side: BorderSide(color: appGreen.withValues(alpha: 0.62)),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -131,9 +142,9 @@ class _GreenSiteAppState extends State<GreenSiteApp> {
           ),
           cardTheme: CardThemeData(
             color: appSurface,
-            elevation: 0.5,
+            elevation: 1,
             shadowColor: appNavy.withValues(alpha: 0.08),
-            surfaceTintColor: Colors.white,
+            surfaceTintColor: appSurface,
             shape: RoundedRectangleBorder(
               side: BorderSide(color: appNavy.withValues(alpha: 0.08)),
               borderRadius: BorderRadius.circular(8),
@@ -152,41 +163,83 @@ class AppState extends ChangeNotifier {
   final ApiClient api;
   String? token;
   String userName = 'Etudiant Demo';
+  String userEmail = 'student@example.com';
+  String userRole = 'student';
+  Uint8List? profilePhotoBytes;
   bool syncing = false;
   String syncStatus = 'Mode demo pret';
   final List<ClientProfile> clients = [ClientProfile.demo()];
   final List<SiteProfile> sites = [SiteProfile.demo()];
   final List<EquipmentItem> equipment = EquipmentItem.demoItems();
   final List<SimulationRecord> simulations = [];
+  final List<AdminUserProfile> adminUsers = [];
 
   SiteProfile get activeSite => sites.first;
+  bool get isAdmin => userRole == 'admin';
+
+  Future<void> pickProfilePhoto() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 720,
+      imageQuality: 82,
+    );
+    if (image == null) return;
+    profilePhotoBytes = await image.readAsBytes();
+    notifyListeners();
+  }
+
+  void removeProfilePhoto() {
+    profilePhotoBytes = null;
+    notifyListeners();
+  }
 
   Future<void> login(String email, String password) async {
     try {
       final response = await api.login(email, password);
       token = response['access_token'] as String?;
-      userName = response['user']?['full_name'] as String? ?? userName;
+      _applyUser(response['user'], fallbackEmail: email);
       await syncFromApi();
     } catch (_) {
       token = 'offline-demo-token';
       userName = email.contains('@') ? email.split('@').first : userName;
+      userEmail = email;
+      userRole = email.toLowerCase().contains('admin') ? 'admin' : 'student';
       syncStatus = 'Mode demo local';
     }
     notifyListeners();
   }
 
-  Future<void> register(String name, String email, String password) async {
+  Future<void> register(
+    String name,
+    String email,
+    String password, {
+    String role = 'student',
+  }) async {
     try {
-      final response = await api.register(name, email, password);
+      final response = await api.register(name, email, password, role: role);
       token = response['access_token'] as String?;
-      userName = response['user']?['full_name'] as String? ?? name;
+      _applyUser(response['user'], fallbackEmail: email, fallbackName: name);
       await syncFromApi();
     } catch (_) {
       token = 'offline-demo-token';
       userName = name;
+      userEmail = email;
+      userRole = role;
       syncStatus = 'Mode demo local';
     }
     notifyListeners();
+  }
+
+  void _applyUser(
+    dynamic user, {
+    required String fallbackEmail,
+    String? fallbackName,
+  }) {
+    final map = user is Map<String, dynamic> ? user : <String, dynamic>{};
+    userName = map['full_name'] as String? ?? fallbackName ?? userName;
+    userEmail = map['email'] as String? ?? fallbackEmail;
+    userRole = map['role'] as String? ?? 'student';
   }
 
   Future<void> syncFromApi() async {
@@ -209,6 +262,7 @@ class AppState extends ChangeNotifier {
       if (clients.isEmpty) {
         clients.add(ClientProfile.demo());
       }
+      await syncAdminData();
       syncStatus = 'Connecte a API Render';
     } catch (_) {
       syncStatus = 'API indisponible, donnees locales conservees';
@@ -216,6 +270,21 @@ class AppState extends ChangeNotifier {
       syncing = false;
       notifyListeners();
     }
+  }
+
+  Future<void> syncAdminData() async {
+    if (!isAdmin || token == null || token == 'offline-demo-token') return;
+    try {
+      final remoteUsers = await api.listUsers(token!);
+      adminUsers
+        ..clear()
+        ..addAll(remoteUsers.map(AdminUserProfile.fromJson));
+    } catch (_) {
+      if (adminUsers.isEmpty) {
+        adminUsers.add(AdminUserProfile.demo(userName, userEmail, userRole));
+      }
+    }
+    notifyListeners();
   }
 
   Future<void> addClient(ClientProfile client) async {
@@ -397,7 +466,7 @@ class ApiClient {
   ApiClient({
     this.baseUrl = const String.fromEnvironment(
       'API_BASE_URL',
-      defaultValue: 'https://greensite-pv-api.onrender.com',
+      defaultValue: 'https://greensitepvdesignerteam750.onrender.com',
     ),
   });
 
@@ -415,8 +484,9 @@ class ApiClient {
   Future<Map<String, dynamic>> register(
     String name,
     String email,
-    String password,
-  ) async {
+    String password, {
+    String role = 'student',
+  }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/register'),
       headers: {'Content-Type': 'application/json'},
@@ -424,6 +494,7 @@ class ApiClient {
         'full_name': name,
         'email': email,
         'password': password,
+        'role': role,
       }),
     );
     return _decode(response);
@@ -468,6 +539,14 @@ class ApiClient {
       headers: _authHeaders(token),
     );
     if (response.statusCode >= 400) throw Exception(response.body);
+  }
+
+  Future<List<dynamic>> listUsers(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/users'),
+      headers: _authHeaders(token),
+    );
+    return _decodeList(response);
   }
 
   Future<List<dynamic>> listSites(String token) async {
@@ -593,6 +672,45 @@ class ClientProfile {
     'address': address,
     'notes': notes,
   };
+}
+
+class AdminUserProfile {
+  const AdminUserProfile({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.role,
+    required this.createdAt,
+  });
+
+  factory AdminUserProfile.demo(String name, String email, String role) {
+    return AdminUserProfile(
+      id: 0,
+      name: name,
+      email: email,
+      role: role,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  factory AdminUserProfile.fromJson(dynamic json) {
+    final map = json as Map<String, dynamic>;
+    return AdminUserProfile(
+      id: (map['id'] as num?)?.round() ?? 0,
+      name: map['full_name'] as String? ?? '',
+      email: map['email'] as String? ?? '',
+      role: map['role'] as String? ?? 'student',
+      createdAt:
+          DateTime.tryParse(map['created_at'] as String? ?? '') ??
+          DateTime.now(),
+    );
+  }
+
+  final int id;
+  final String name;
+  final String email;
+  final String role;
+  final DateTime createdAt;
 }
 
 class SiteProfile {
@@ -1399,7 +1517,7 @@ class LandingScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF082F28), Color(0xFF0C4A38), Color(0xFF082B24)],
+            colors: [landingForest, landingForestMid, landingForestDeep],
           ),
         ),
         child: SafeArea(
@@ -1445,7 +1563,7 @@ class LandingScreen extends StatelessWidget {
                           ),
                         ),
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF63B642),
+                          backgroundColor: landingGreen,
                           minimumSize: const Size.fromHeight(50),
                         ),
                         child: const Text('Se connecter'),
@@ -1460,14 +1578,16 @@ class LandingScreen extends StatelessWidget {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
                           minimumSize: const Size.fromHeight(50),
-                          side: const BorderSide(color: Color(0xFF63B642)),
+                          side: const BorderSide(color: landingGreen),
                         ),
                         child: const Text('Creer un compte'),
                       ),
                       const SizedBox(height: 14),
                       TextButton(
-                        onPressed: () => Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(builder: (_) => const HomeShell()),
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const DiscoverScreen(),
+                          ),
                         ),
                         child: Text(
                           'Decouvrir GreenSite PV',
@@ -1516,7 +1636,7 @@ class _LandingLogo extends StatelessWidget {
               TextSpan(
                 text: 'PV',
                 style: TextStyle(
-                  color: Color(0xFF7FC84A),
+                  color: landingGreenLight,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -1696,6 +1816,154 @@ class _PanelGridPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+class DiscoverScreen extends StatelessWidget {
+  const DiscoverScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: landingForestDeep,
+        foregroundColor: Colors.white,
+        title: const Text(
+          'Decouvrir GreenSite PV',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [landingForestDeep, landingForestMid, landingForestDeep],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  const _LandingLogo(),
+                  const SizedBox(height: 24),
+                  _DiscoverTile(
+                    icon: Icons.solar_power,
+                    title: 'Dimensionnement PV',
+                    text:
+                        'Estimez panneaux, batteries, regulateur, onduleur et protections pour un site telecom.',
+                  ),
+                  _DiscoverTile(
+                    icon: Icons.fact_check_outlined,
+                    title: 'Audit de faisabilite',
+                    text:
+                        'Comparez solaire et diesel avec TCO, retour sur investissement et CO2 evite.',
+                  ),
+                  _DiscoverTile(
+                    icon: Icons.monitor_heart_outlined,
+                    title: 'Suivi maintenance',
+                    text:
+                        'Analysez disponibilite, sante batterie, inspections, nettoyage et alertes.',
+                  ),
+                  _DiscoverTile(
+                    icon: Icons.admin_panel_settings_outlined,
+                    title: 'Administration',
+                    text:
+                        'Supervisez utilisateurs, sites, clients et donnees lorsque vous etes connecte en admin.',
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    ),
+                    icon: const Icon(Icons.login),
+                    label: const Text('Se connecter'),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: landingGreen),
+                    ),
+                    icon: const Icon(Icons.person_add_alt),
+                    label: const Text('Creer un compte'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DiscoverTile extends StatelessWidget {
+  const _DiscoverTile({
+    required this.icon,
+    required this.title,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String title;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: landingGreen.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: landingGreenLight),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  text,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    height: 1.35,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -1766,6 +2034,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final name = TextEditingController(text: 'Etudiant Demo');
   final email = TextEditingController();
   final password = TextEditingController();
+  String role = 'student';
 
   @override
   Widget build(BuildContext context) {
@@ -1789,11 +2058,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
           icon: Icons.lock_outline,
           obscure: true,
         ),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(
+              value: 'student',
+              icon: Icon(Icons.school_outlined),
+              label: Text('Etudiant'),
+            ),
+            ButtonSegment(
+              value: 'admin',
+              icon: Icon(Icons.admin_panel_settings_outlined),
+              label: Text('Admin'),
+            ),
+          ],
+          selected: {role},
+          onSelectionChanged: (values) => setState(() => role = values.first),
+        ),
         FilledButton.icon(
           onPressed: () async {
             await AppScope.of(
               context,
-            ).register(name.text, email.text, password.text);
+            ).register(name.text, email.text, password.text, role: role);
             if (context.mounted) {
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const HomeShell()),
@@ -1829,7 +2114,7 @@ class AuthScaffold extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFE5F2EC), appBackground],
+            colors: [Color(0xFFEAF6EF), appBackground],
           ),
         ),
         child: SafeArea(
@@ -1979,7 +2264,7 @@ class _AppMark extends StatelessWidget {
       width: 46,
       height: 46,
       decoration: BoxDecoration(
-        color: appGreen.withValues(alpha: 0.12),
+        color: appGreen.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(8),
       ),
       child: const Icon(Icons.solar_power, color: appGreenDark),
@@ -3650,15 +3935,31 @@ class ProfileScreen extends StatelessWidget {
     return AppPage(
       title: 'Profil utilisateur',
       children: [
+        const ProfilePhotoCard(),
         InfoCard(
           icon: Icons.person,
           title: state.userName,
-          subtitle: 'Role: etudiant',
+          subtitle: 'Role: ${state.isAdmin ? 'administrateur' : 'etudiant'}',
           lines: [
             'Mode API: ${state.token == 'offline-demo-token' ? 'demo local' : 'connecte'}',
+            state.userEmail,
             'Swagger backend: /docs',
           ],
         ),
+        if (state.isAdmin)
+          InfoCard(
+            icon: Icons.admin_panel_settings_outlined,
+            title: 'Espace administrateur',
+            subtitle: 'Supervision globale, utilisateurs et donnees API',
+            lines: [
+              '${state.adminUsers.length} utilisateurs',
+              '${state.clients.length} clients',
+              '${state.sites.length} sites',
+            ],
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+            ),
+          ),
         NoticeCard(text: academicNotice),
         OutlinedButton.icon(
           onPressed: () => Navigator.of(context).pushAndRemoveUntil(
@@ -3667,6 +3968,263 @@ class ProfileScreen extends StatelessWidget {
           ),
           icon: const Icon(Icons.logout),
           label: const Text('Deconnexion'),
+        ),
+      ],
+    );
+  }
+}
+
+class ProfilePhotoCard extends StatelessWidget {
+  const ProfilePhotoCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    final photo = state.profilePhotoBytes;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 42,
+              backgroundColor: appGreen.withValues(alpha: 0.14),
+              backgroundImage: photo == null ? null : MemoryImage(photo),
+              child: photo == null
+                  ? const Icon(Icons.person, color: appGreenDark, size: 42)
+                  : null,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    state.userName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: appNavy,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Text(
+                    state.userEmail,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: appMutedText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: state.pickProfilePhoto,
+                        icon: const Icon(Icons.photo_camera_outlined),
+                        label: Text(photo == null ? 'Ajouter' : 'Modifier'),
+                      ),
+                      if (photo != null)
+                        OutlinedButton.icon(
+                          onPressed: state.removeProfilePhoto,
+                          icon: const Icon(Icons.delete_outline),
+                          label: const Text('Retirer'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AdminDashboardScreen extends StatelessWidget {
+  const AdminDashboardScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    final totalEquipmentPower = state.equipment.fold<double>(
+      0,
+      (sum, item) => sum + item.powerWatts * item.quantity,
+    );
+    return AppPage(
+      title: 'Administration',
+      showBack: true,
+      action: IconButton(
+        tooltip: 'Synchroniser',
+        onPressed: () => state.syncFromApi(),
+        icon: const Icon(Icons.sync),
+      ),
+      children: [
+        if (!state.isAdmin)
+          const InfoCard(
+            icon: Icons.lock_outline,
+            title: 'Acces reserve',
+            subtitle: 'Connectez-vous avec un compte administrateur.',
+            lines: [],
+          ),
+        if (state.isAdmin) ...[
+          InfoCard(
+            icon: Icons.cloud_done_outlined,
+            title: 'API Render',
+            subtitle: state.api.baseUrl,
+            lines: [
+              state.syncStatus,
+              state.token == 'offline-demo-token'
+                  ? 'Mode demonstration'
+                  : 'Authentifie',
+            ],
+          ),
+          GridView.count(
+            crossAxisCount: MediaQuery.sizeOf(context).width > 700 ? 4 : 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.45,
+            children: [
+              StatCard(
+                icon: Icons.people_alt_outlined,
+                label: 'Utilisateurs',
+                value: '${state.adminUsers.length}',
+              ),
+              StatCard(
+                icon: Icons.business_center_outlined,
+                label: 'Clients',
+                value: '${state.clients.length}',
+              ),
+              StatCard(
+                icon: Icons.cell_tower_outlined,
+                label: 'Sites',
+                value: '${state.sites.length}',
+              ),
+              StatCard(
+                icon: Icons.bolt,
+                label: 'Charge installee',
+                value: '${totalEquipmentPower.toStringAsFixed(0)} W',
+              ),
+            ],
+          ),
+          InfoCard(
+            icon: Icons.manage_accounts_outlined,
+            title: 'Utilisateurs',
+            subtitle: 'Consulter les comptes et leurs roles',
+            lines: const ['admin', 'student'],
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const AdminUsersScreen())),
+          ),
+          InfoCard(
+            icon: Icons.storage_outlined,
+            title: 'Donnees metier',
+            subtitle: 'Acces rapide aux clients, sites et simulations',
+            lines: const ['Clients', 'Sites', 'Historique'],
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const AdminDataScreen())),
+          ),
+          FilledButton.icon(
+            onPressed: () => state.syncFromApi(),
+            icon: const Icon(Icons.sync),
+            label: const Text('Synchroniser avec Render'),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class AdminUsersScreen extends StatelessWidget {
+  const AdminUsersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    final users = state.adminUsers.isEmpty
+        ? [
+            AdminUserProfile.demo(
+              state.userName,
+              state.userEmail,
+              state.userRole,
+            ),
+          ]
+        : state.adminUsers;
+    return AppPage(
+      title: 'Utilisateurs',
+      showBack: true,
+      action: IconButton(
+        tooltip: 'Actualiser',
+        onPressed: () => state.syncAdminData(),
+        icon: const Icon(Icons.refresh),
+      ),
+      children: [
+        for (final user in users)
+          InfoCard(
+            icon: user.role == 'admin'
+                ? Icons.admin_panel_settings_outlined
+                : Icons.school_outlined,
+            title: user.name.isEmpty ? user.email : user.name,
+            subtitle: user.email,
+            lines: [
+              'Role: ${user.role}',
+              'Cree le ${shortDate(user.createdAt)}',
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+class AdminDataScreen extends StatelessWidget {
+  const AdminDataScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    return AppPage(
+      title: 'Donnees admin',
+      showBack: true,
+      children: [
+        InfoCard(
+          icon: Icons.groups_outlined,
+          title: 'Clients',
+          subtitle: 'Tous les clients visibles par le compte admin',
+          lines: ['${state.clients.length} profils'],
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const ClientsScreen())),
+        ),
+        InfoCard(
+          icon: Icons.cell_tower_outlined,
+          title: 'Sites',
+          subtitle: 'Inventaire global des sites telecom',
+          lines: [
+            '${state.sites.length} sites',
+            '${state.equipment.length} equipements',
+          ],
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const SitesScreen())),
+        ),
+        InfoCard(
+          icon: Icons.history,
+          title: 'Simulations',
+          subtitle: 'Historique et rapports de dimensionnement',
+          lines: ['${state.simulations.length} simulations locales'],
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const HistoryScreen(asPage: true),
+            ),
+          ),
         ),
       ],
     );
@@ -4009,7 +4567,7 @@ class StatCard extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: appGreen.withValues(alpha: 0.1),
+                color: appGreen.withValues(alpha: 0.16),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: appGreenDark, size: 20),
@@ -4073,10 +4631,10 @@ class InfoCard extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: appNavy.withValues(alpha: 0.08),
+                  color: appGreen.withValues(alpha: 0.13),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: appNavy, size: 22),
+                child: Icon(icon, color: appGreenDark, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
