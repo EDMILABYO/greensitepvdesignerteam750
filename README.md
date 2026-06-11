@@ -45,10 +45,22 @@ Le fichier `backend/render.yaml` declare un service web FastAPI et une base Post
 
 ```powershell
 flutter pub get
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
+flutter run
 ```
 
-Sur un appareil physique, remplacer `10.0.2.2` par l'adresse IP locale de la machine qui execute FastAPI.
+Par defaut, l'application utilise l'API Render :
+
+```text
+https://greensite-pv-api.onrender.com
+```
+
+Pour utiliser une autre API, lancer Flutter avec :
+
+```powershell
+flutter run --dart-define=API_BASE_URL=https://votre-api.onrender.com
+```
+
+Pour revenir au backend local Android, utiliser `http://10.0.2.2:8000`. Sur un appareil physique, remplacer `10.0.2.2` par l'adresse IP locale de la machine qui execute FastAPI.
 
 L'application contient un mode demo local: si l'API n'est pas joignable au moment de la connexion, elle permet quand meme de presenter les ecrans, les calculs, l'historique et le rapport.
 

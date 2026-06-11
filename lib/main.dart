@@ -9,6 +9,13 @@ void main() => runApp(const GreenSiteApp());
 
 const academicNotice =
     "Les donnees utilisees dans cette application sont simulees et destinees uniquement a un usage academique.";
+const appGreen = Color(0xFF0B8F6F);
+const appGreenDark = Color(0xFF075A4B);
+const appNavy = Color(0xFF123047);
+const appAmber = Color(0xFFF5B942);
+const appSurface = Color(0xFFFFFFFF);
+const appBackground = Color(0xFFF2F6F4);
+const appMutedText = Color(0xFF65747D);
 
 class GreenSiteApp extends StatefulWidget {
   const GreenSiteApp({super.key});
@@ -22,8 +29,6 @@ class _GreenSiteAppState extends State<GreenSiteApp> {
 
   @override
   Widget build(BuildContext context) {
-    const green = Color(0xFF0E9F6E);
-    const navy = Color(0xFF123047);
     return AppScope(
       notifier: state,
       child: MaterialApp(
@@ -32,22 +37,105 @@ class _GreenSiteAppState extends State<GreenSiteApp> {
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
-            seedColor: green,
-            primary: green,
-            secondary: navy,
-            surface: Colors.white,
+            seedColor: appGreen,
+            primary: appGreen,
+            secondary: appNavy,
+            tertiary: appAmber,
+            surface: appSurface,
+            surfaceContainerHighest: const Color(0xFFE4ECE8),
           ),
-          scaffoldBackgroundColor: const Color(0xFFF4F7F6),
+          scaffoldBackgroundColor: appBackground,
           appBarTheme: const AppBarTheme(
             centerTitle: false,
-            backgroundColor: Colors.white,
-            foregroundColor: navy,
+            backgroundColor: appBackground,
+            foregroundColor: appNavy,
             elevation: 0,
+            scrolledUnderElevation: 0,
+          ),
+          navigationBarTheme: NavigationBarThemeData(
+            height: 72,
+            backgroundColor: appSurface,
+            indicatorColor: appGreen.withValues(alpha: 0.14),
+            labelTextStyle: WidgetStateProperty.resolveWith(
+              (states) => TextStyle(
+                color: states.contains(WidgetState.selected)
+                    ? appGreenDark
+                    : appMutedText,
+                fontSize: 11,
+                fontWeight: states.contains(WidgetState.selected)
+                    ? FontWeight.w800
+                    : FontWeight.w600,
+              ),
+            ),
+          ),
+          navigationRailTheme: NavigationRailThemeData(
+            backgroundColor: appSurface,
+            indicatorColor: appGreen.withValues(alpha: 0.14),
+            selectedIconTheme: const IconThemeData(color: appGreenDark),
+            selectedLabelTextStyle: const TextStyle(
+              color: appGreenDark,
+              fontWeight: FontWeight.w800,
+            ),
+            unselectedLabelTextStyle: const TextStyle(color: appMutedText),
+          ),
+          filledButtonTheme: FilledButtonThemeData(
+            style: FilledButton.styleFrom(
+              backgroundColor: appGreen,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(48, 48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              textStyle: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          outlinedButtonTheme: OutlinedButtonThemeData(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: appGreenDark,
+              minimumSize: const Size(48, 48),
+              side: BorderSide(color: appGreen.withValues(alpha: 0.35)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              textStyle: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: appSurface,
+            prefixIconColor: appGreenDark,
+            labelStyle: const TextStyle(color: appMutedText),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: appNavy.withValues(alpha: 0.12)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: appNavy.withValues(alpha: 0.12)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: appGreen, width: 1.6),
+            ),
+          ),
+          chipTheme: ChipThemeData(
+            backgroundColor: const Color(0xFFEAF3EF),
+            side: BorderSide(color: appGreen.withValues(alpha: 0.12)),
+            labelStyle: const TextStyle(
+              color: appGreenDark,
+              fontWeight: FontWeight.w700,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
           cardTheme: CardThemeData(
-            color: Colors.white,
-            elevation: 0,
+            color: appSurface,
+            elevation: 0.5,
+            shadowColor: appNavy.withValues(alpha: 0.08),
+            surfaceTintColor: Colors.white,
             shape: RoundedRectangleBorder(
+              side: BorderSide(color: appNavy.withValues(alpha: 0.08)),
               borderRadius: BorderRadius.circular(8),
             ),
           ),
@@ -309,7 +397,7 @@ class ApiClient {
   ApiClient({
     this.baseUrl = const String.fromEnvironment(
       'API_BASE_URL',
-      defaultValue: 'http://10.0.2.2:8000',
+      defaultValue: 'https://greensite-pv-api.onrender.com',
     ),
   });
 
@@ -1231,7 +1319,7 @@ class _SplashScreenState extends State<SplashScreen> {
     Future<void>.delayed(const Duration(milliseconds: 900), () {
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          MaterialPageRoute(builder: (_) => const LandingScreen()),
         );
       }
     });
@@ -1240,30 +1328,372 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0E9F6E),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.solar_power, color: Colors.white, size: 72),
-            const SizedBox(height: 16),
-            Text(
-              'GreenSite PV Simulator',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [appGreenDark, appGreen, Color(0xFF6FBF73)],
+          ),
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.22),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.solar_power,
+                      color: Colors.white,
+                      size: 54,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'GreenSite PV Simulator',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Dimensionnement photovoltaique telecom',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.88),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Dimensionnement photovoltaique telecom',
-              style: TextStyle(color: Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class LandingScreen extends StatelessWidget {
+  const LandingScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF082F28), Color(0xFF0C4A38), Color(0xFF082B24)],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxHeight < 700;
+                  return ListView(
+                    padding: EdgeInsets.fromLTRB(28, compact ? 18 : 34, 28, 24),
+                    children: [
+                      const _LandingLogo(),
+                      SizedBox(height: compact ? 26 : 44),
+                      Text(
+                        'Gerez vos installations\nphotovoltaiques en\ntoute simplicite',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: Colors.white,
+                              fontSize: compact ? 25 : 29,
+                              height: 1.18,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Suivez la performance de vos centrales,\nanalysez votre production et optimisez\nvotre energie solaire.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.82),
+                          height: 1.45,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      SizedBox(height: compact ? 22 : 34),
+                      const _SolarLandingIllustration(),
+                      SizedBox(height: compact ? 26 : 38),
+                      FilledButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const LoginScreen(),
+                          ),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF63B642),
+                          minimumSize: const Size.fromHeight(50),
+                        ),
+                        child: const Text('Se connecter'),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const RegisterScreen(),
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(50),
+                          side: const BorderSide(color: Color(0xFF63B642)),
+                        ),
+                        child: const Text('Creer un compte'),
+                      ),
+                      const SizedBox(height: 14),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(builder: (_) => const HomeShell()),
+                        ),
+                        child: Text(
+                          'Decouvrir GreenSite PV',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LandingLogo extends StatelessWidget {
+  const _LandingLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 54,
+          height: 40,
+          child: CustomPaint(painter: _SolarMarkPainter()),
+        ),
+        const SizedBox(width: 10),
+        RichText(
+          text: const TextSpan(
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 27,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+            ),
+            children: [
+              TextSpan(text: 'greensite '),
+              TextSpan(
+                text: 'PV',
+                style: TextStyle(
+                  color: Color(0xFF7FC84A),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SolarLandingIllustration extends StatelessWidget {
+  const _SolarLandingIllustration();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SizedBox(
+        width: 250,
+        height: 170,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned(
+              top: 18,
+              child: Container(
+                width: 88,
+                height: 88,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF2C849),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Positioned(
+              left: 20,
+              bottom: 4,
+              child: Icon(
+                Icons.eco,
+                color: const Color(0xFF5EA244).withValues(alpha: 0.85),
+                size: 74,
+              ),
+            ),
+            Positioned(
+              right: 18,
+              bottom: 8,
+              child: Transform.rotate(
+                angle: -0.4,
+                child: Icon(
+                  Icons.eco,
+                  color: const Color(0xFF74B94F).withValues(alpha: 0.9),
+                  size: 68,
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 18,
+              child: Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.001)
+                  ..rotateX(0.75),
+                child: Container(
+                  width: 170,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF5B86A7), Color(0xFF1D4A70)],
+                    ),
+                    border: Border.all(color: Colors.white, width: 3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.28),
+                        blurRadius: 22,
+                        offset: const Offset(0, 16),
+                      ),
+                    ],
+                  ),
+                  child: CustomPaint(painter: _PanelGridPainter()),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 5,
+              left: 92,
+              child: Container(width: 8, height: 32, color: Color(0xFF7A8790)),
+            ),
+            Positioned(
+              bottom: 5,
+              right: 88,
+              child: Container(width: 8, height: 36, color: Color(0xFF7A8790)),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+class _SolarMarkPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final sunPaint = Paint()
+      ..color = const Color(0xFFF2C849)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+    final panelPaint = Paint()
+      ..color = const Color(0xFFE8FFF5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    final sunCenter = Offset(size.width * 0.36, size.height * 0.26);
+    canvas.drawArc(
+      Rect.fromCircle(center: sunCenter, radius: 10),
+      pi,
+      pi,
+      false,
+      sunPaint,
+    );
+    for (final ray in [
+      const Offset(-14, -2),
+      const Offset(-9, -11),
+      const Offset(0, -16),
+      const Offset(9, -11),
+      const Offset(14, -2),
+    ]) {
+      canvas.drawLine(sunCenter + ray, sunCenter + ray * 1.25, sunPaint);
+    }
+
+    final panel = Path()
+      ..moveTo(size.width * 0.18, size.height * 0.58)
+      ..lineTo(size.width * 0.72, size.height * 0.58)
+      ..lineTo(size.width * 0.86, size.height * 0.92)
+      ..lineTo(size.width * 0.04, size.height * 0.92)
+      ..close();
+    canvas.drawPath(panel, panelPaint);
+    for (final x in [0.27, 0.43, 0.59, 0.75]) {
+      canvas.drawLine(
+        Offset(size.width * x, size.height * 0.58),
+        Offset(size.width * (x - 0.12), size.height * 0.92),
+        panelPaint,
+      );
+    }
+    for (final y in [0.69, 0.81]) {
+      canvas.drawLine(
+        Offset(size.width * 0.11, size.height * y),
+        Offset(size.width * 0.81, size.height * y),
+        panelPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _PanelGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.58)
+      ..strokeWidth = 1.2;
+    for (var i = 1; i < 4; i++) {
+      final x = size.width * i / 4;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (var i = 1; i < 4; i++) {
+      final y = size.height * i / 4;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class LoginScreen extends StatefulWidget {
@@ -1394,30 +1824,63 @@ class AuthScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            const SizedBox(height: 32),
-            const Icon(Icons.solar_power, color: Color(0xFF0E9F6E), size: 64),
-            const SizedBox(height: 20),
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            Text(subtitle, style: const TextStyle(color: Color(0xFF5F6F7A))),
-            const SizedBox(height: 20),
-            NoticeCard(text: academicNotice),
-            const SizedBox(height: 20),
-            ...children.map(
-              (child) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: child,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFE5F2EC), appBackground],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                shrinkWrap: true,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: appGreen.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.solar_power,
+                      color: appGreenDark,
+                      size: 38,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: appNavy,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: appMutedText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  NoticeCard(text: academicNotice),
+                  const SizedBox(height: 20),
+                  ...children.map(
+                    (child) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: child,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1436,66 +1899,201 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final wide = MediaQuery.sizeOf(context).width >= 980;
     final pages = [
       const DashboardScreen(),
-      const AuditScreen(),
-      const ClientsScreen(),
-      const SitesScreen(),
-      const SimulationScreen(),
-      const ImplementationScreen(),
-      const MaintenanceScreen(),
-      const HistoryScreen(),
+      const ManagementMenuScreen(),
+      const StudiesMenuScreen(),
+      const OperationsMenuScreen(),
       const ProfileScreen(),
     ];
+    const destinations = [
+      NavigationDestination(
+        icon: Icon(Icons.dashboard_outlined),
+        selectedIcon: Icon(Icons.dashboard),
+        label: 'Tableau',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.folder_open_outlined),
+        selectedIcon: Icon(Icons.folder_open),
+        label: 'Gestion',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.calculate_outlined),
+        selectedIcon: Icon(Icons.calculate),
+        label: 'Etudes',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.monitor_heart_outlined),
+        selectedIcon: Icon(Icons.monitor_heart),
+        label: 'Suivi',
+      ),
+      NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profil'),
+    ];
+
+    if (wide) {
+      return Scaffold(
+        body: Row(
+          children: [
+            NavigationRail(
+              selectedIndex: index,
+              onDestinationSelected: (value) => setState(() => index = value),
+              labelType: NavigationRailLabelType.all,
+              leading: const Padding(
+                padding: EdgeInsets.only(top: 16, bottom: 18),
+                child: _AppMark(),
+              ),
+              destinations: [
+                for (final destination in destinations)
+                  NavigationRailDestination(
+                    icon: destination.icon,
+                    selectedIcon: destination.selectedIcon,
+                    label: Text(destination.label),
+                  ),
+              ],
+            ),
+            const VerticalDivider(width: 1, color: Color(0xFFDDE7E2)),
+            Expanded(child: pages[index]),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       body: pages[index],
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (value) => setState(() => index = value),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Tableau',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.fact_check_outlined),
-            selectedIcon: Icon(Icons.fact_check),
-            label: 'Audit',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.groups_outlined),
-            selectedIcon: Icon(Icons.groups),
-            label: 'Clients',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.cell_tower_outlined),
-            selectedIcon: Icon(Icons.cell_tower),
-            label: 'Sites',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.calculate_outlined),
-            selectedIcon: Icon(Icons.calculate),
-            label: 'Calcul',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.engineering_outlined),
-            selectedIcon: Icon(Icons.engineering),
-            label: 'Install',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.monitor_heart_outlined),
-            selectedIcon: Icon(Icons.monitor_heart),
-            label: 'Suivi',
-          ),
-          NavigationDestination(icon: Icon(Icons.history), label: 'Historique'),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profil',
-          ),
-        ],
+        destinations: destinations,
       ),
+    );
+  }
+}
+
+class _AppMark extends StatelessWidget {
+  const _AppMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        color: appGreen.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Icon(Icons.solar_power, color: appGreenDark),
+    );
+  }
+}
+
+class ManagementMenuScreen extends StatelessWidget {
+  const ManagementMenuScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    return AppPage(
+      title: 'Gestion',
+      children: [
+        InfoCard(
+          icon: Icons.groups_outlined,
+          title: 'Clients',
+          subtitle: 'Profils client, contacts et informations de projet',
+          lines: ['${state.clients.length} clients'],
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const ClientsScreen())),
+        ),
+        InfoCard(
+          icon: Icons.cell_tower_outlined,
+          title: 'Sites telecom',
+          subtitle: 'Sites BTS, localisation et parametres solaires',
+          lines: [
+            '${state.sites.length} sites',
+            '${state.equipment.length} equipements',
+          ],
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const SitesScreen())),
+        ),
+      ],
+    );
+  }
+}
+
+class StudiesMenuScreen extends StatelessWidget {
+  const StudiesMenuScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPage(
+      title: 'Etudes',
+      children: [
+        InfoCard(
+          icon: Icons.fact_check_outlined,
+          title: 'Audit de faisabilite',
+          subtitle: 'Comparer diesel et solaire avant conception',
+          lines: const ['TCO', 'ROI', 'CO2'],
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const AuditScreen())),
+        ),
+        InfoCard(
+          icon: Icons.calculate_outlined,
+          title: 'Conception PV',
+          subtitle: 'Dimensionner panneaux, batteries et protections',
+          lines: const ['PV', 'Batteries', 'Couts'],
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const SimulationScreen(asPage: true),
+            ),
+          ),
+        ),
+        InfoCard(
+          icon: Icons.engineering_outlined,
+          title: 'Implementation',
+          subtitle: 'Valider les mesures terrain et la performance',
+          lines: const ['PR', 'Checklist', 'Tests'],
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ImplementationScreen()),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class OperationsMenuScreen extends StatelessWidget {
+  const OperationsMenuScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    return AppPage(
+      title: 'Suivi',
+      children: [
+        InfoCard(
+          icon: Icons.monitor_heart_outlined,
+          title: 'Maintenance',
+          subtitle: 'Sante batterie, nettoyage et inspections',
+          lines: const ['Disponibilite', 'Sante', 'Alertes'],
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const MaintenanceScreen())),
+        ),
+        InfoCard(
+          icon: Icons.history,
+          title: 'Historique',
+          subtitle: 'Consulter les simulations deja enregistrees',
+          lines: ['${state.simulations.length} simulations'],
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const HistoryScreen(asPage: true),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -3064,7 +3662,7 @@ class ProfileScreen extends StatelessWidget {
         NoticeCard(text: academicNotice),
         OutlinedButton.icon(
           onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            MaterialPageRoute(builder: (_) => const LandingScreen()),
             (_) => false,
           ),
           icon: const Icon(Icons.logout),
@@ -3224,15 +3822,20 @@ class AppPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: showBack || Navigator.of(context).canPop(),
-        title: Text(title),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
         actions: [if (action != null) action!],
       ),
       body: SafeArea(
-        child: ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemBuilder: (_, index) => children[index],
-          separatorBuilder: (_, _) => const SizedBox(height: 12),
-          itemCount: children.length,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1120),
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+              itemBuilder: (_, index) => children[index],
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemCount: children.length,
+            ),
+          ),
         ),
       ),
     );
@@ -3330,11 +3933,14 @@ class SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-        fontWeight: FontWeight.w800,
-        color: Theme.of(context).colorScheme.secondary,
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w900,
+          color: appNavy,
+        ),
       ),
     );
   }
@@ -3350,15 +3956,26 @@ class NoticeCard extends StatelessWidget {
     return Card(
       color: const Color(0xFFE8F8F1),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            const Icon(Icons.school_outlined, color: Color(0xFF0E9F6E)),
-            const SizedBox(width: 10),
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.school_outlined, color: appGreenDark),
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 text,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  color: appGreenDark,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
@@ -3384,25 +4001,37 @@ class StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: Theme.of(context).colorScheme.primary),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: appGreen.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: appGreenDark, size: 20),
+            ),
             const Spacer(),
             Text(
               value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: appNavy,
+                fontWeight: FontWeight.w900,
+              ),
             ),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Color(0xFF5F6F7A)),
+              style: const TextStyle(
+                color: appMutedText,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -3436,11 +4065,19 @@ class InfoCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: Theme.of(context).colorScheme.secondary),
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: appNavy.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: appNavy, size: 22),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -3448,12 +4085,18 @@ class InfoCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
+                      style: const TextStyle(
+                        color: appNavy,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                     if (subtitle.isNotEmpty)
                       Text(
                         subtitle,
-                        style: const TextStyle(color: Color(0xFF5F6F7A)),
+                        style: const TextStyle(
+                          color: appMutedText,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     const SizedBox(height: 6),
                     Wrap(
@@ -3495,11 +4138,8 @@ class AppTextField extends StatelessWidget {
       controller: controller,
       obscureText: obscure,
       keyboardType: obscure ? TextInputType.text : TextInputType.text,
-      decoration: InputDecoration(
-        prefixIcon: Icon(icon),
-        labelText: label,
-        border: const OutlineInputBorder(),
-      ),
+      style: const TextStyle(fontWeight: FontWeight.w600),
+      decoration: InputDecoration(prefixIcon: Icon(icon), labelText: label),
     );
   }
 }
