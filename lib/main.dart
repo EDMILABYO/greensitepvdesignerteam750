@@ -8,8 +8,6 @@ import 'package:image_picker/image_picker.dart';
 
 void main() => runApp(const GreenSiteApp());
 
-const academicNotice =
-    "Les donnees utilisees dans cette application sont simulees et destinees uniquement a un usage academique.";
 const landingForest = Color(0xFF082F28);
 const landingForestMid = Color(0xFF0C4A38);
 const landingForestDeep = Color(0xFF082B24);
@@ -2225,8 +2223,6 @@ class AuthScaffold extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  NoticeCard(text: academicNotice),
-                  const SizedBox(height: 20),
                   ...children.map(
                     (child) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -2474,7 +2470,6 @@ class DashboardScreen extends StatelessWidget {
       ),
       children: [
         if (state.syncing) const LinearProgressIndicator(),
-        NoticeCard(text: academicNotice),
         InfoCard(
           icon: Icons.cloud_done_outlined,
           title: state.syncStatus,
@@ -2573,7 +2568,6 @@ class _AuditScreenState extends State<AuditScreen> {
         icon: const Icon(Icons.refresh),
       ),
       children: [
-        NoticeCard(text: academicNotice),
         InfoCard(
           icon: Icons.electrical_services,
           title: 'Profil de charge actuel',
@@ -3528,7 +3522,6 @@ class _ImplementationScreenState extends State<ImplementationScreen> {
         icon: const Icon(Icons.task_alt),
       ),
       children: [
-        NoticeCard(text: academicNotice),
         InfoCard(
           icon: Icons.cell_tower,
           title: state.activeSite.name,
@@ -3687,7 +3680,6 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
         icon: const Icon(Icons.refresh),
       ),
       children: [
-        NoticeCard(text: academicNotice),
         InfoCard(
           icon: Icons.assessment_outlined,
           title: 'KPI de suivi',
@@ -3929,7 +3921,6 @@ class ReportScreen extends StatelessWidget {
         icon: const Icon(Icons.copy_all_outlined),
       ),
       children: [
-        NoticeCard(text: academicNotice),
         InfoCard(
           icon: Icons.cell_tower,
           title: record.site.name,
@@ -4031,7 +4022,6 @@ class ProfileScreen extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
             ),
           ),
-        NoticeCard(text: academicNotice),
         OutlinedButton.icon(
           onPressed: () {
             state.logout();
@@ -4576,45 +4566,6 @@ class SectionTitle extends StatelessWidget {
   }
 }
 
-class NoticeCard extends StatelessWidget {
-  const NoticeCard({required this.text, super.key});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFFE8F8F1),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.75),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.school_outlined, color: appGreenDark),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                text,
-                style: const TextStyle(
-                  color: appGreenDark,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class StatCard extends StatelessWidget {
   const StatCard({
     required this.icon,
@@ -4804,7 +4755,6 @@ String buildReportText(SimulationRecord record) {
   final protections = result.protections.map((item) => '- $item').join('\n');
   return '''
 GreenSite PV Simulator
-$academicNotice
 
 Site
 ${record.site.name}
