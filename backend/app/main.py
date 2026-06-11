@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlmodel import Session
 
-from app.database import create_db_and_tables
+from app.database import create_db_and_tables, engine
 from app.routes import (
     admin_routes,
     auth_routes,
@@ -59,3 +61,10 @@ def root() -> dict[str, str]:
         ),
         "docs": "/docs",
     }
+
+
+@app.get("/health/db")
+def database_health() -> dict[str, str]:
+    with Session(engine) as session:
+        session.exec(text("select 1")).one()
+    return {"database": "ok"}

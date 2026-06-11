@@ -177,6 +177,17 @@ class AppState extends ChangeNotifier {
   SiteProfile get activeSite => sites.first;
   bool get isAdmin => userRole == 'admin';
 
+  void logout() {
+    token = null;
+    userName = 'Etudiant Demo';
+    userEmail = 'student@example.com';
+    userRole = 'student';
+    profilePhotoBytes = null;
+    adminUsers.clear();
+    syncStatus = 'Deconnecte';
+    notifyListeners();
+  }
+
   Future<void> pickProfilePhoto() async {
     final picker = ImagePicker();
     final image = await picker.pickImage(
@@ -195,18 +206,14 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> login(String email, String password) async {
-    try {
-      final response = await api.login(email, password);
-      token = response['access_token'] as String?;
-      _applyUser(response['user'], fallbackEmail: email);
-      await syncFromApi();
-    } catch (_) {
-      token = 'offline-demo-token';
-      userName = email.contains('@') ? email.split('@').first : userName;
-      userEmail = email;
-      userRole = email.toLowerCase().contains('admin') ? 'admin' : 'student';
-      syncStatus = 'Mode demo local';
-    }
+    token = null;
+    adminUsers.clear();
+    syncStatus = 'Connexion a API Render...';
+    notifyListeners();
+    final response = await api.login(email, password);
+    token = response['access_token'] as String?;
+    _applyUser(response['user'], fallbackEmail: email);
+    await syncFromApi();
     notifyListeners();
   }
 
@@ -216,18 +223,14 @@ class AppState extends ChangeNotifier {
     String password, {
     String role = 'student',
   }) async {
-    try {
-      final response = await api.register(name, email, password, role: role);
-      token = response['access_token'] as String?;
-      _applyUser(response['user'], fallbackEmail: email, fallbackName: name);
-      await syncFromApi();
-    } catch (_) {
-      token = 'offline-demo-token';
-      userName = name;
-      userEmail = email;
-      userRole = role;
-      syncStatus = 'Mode demo local';
-    }
+    token = null;
+    adminUsers.clear();
+    syncStatus = 'Creation du compte sur API Render...';
+    notifyListeners();
+    final response = await api.register(name, email, password, role: role);
+    token = response['access_token'] as String?;
+    _applyUser(response['user'], fallbackEmail: email, fallbackName: name);
+    await syncFromApi();
     notifyListeners();
   }
 
@@ -243,7 +246,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> syncFromApi() async {
-    if (token == null || token == 'offline-demo-token') return;
+    if (token == null) return;
     syncing = true;
     syncStatus = 'Synchronisation API...';
     notifyListeners();
@@ -273,7 +276,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> syncAdminData() async {
-    if (!isAdmin || token == null || token == 'offline-demo-token') return;
+    if (!isAdmin || token == null) return;
     try {
       final remoteUsers = await api.listUsers(token!);
       adminUsers
@@ -288,7 +291,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addClient(ClientProfile client) async {
-    if (token != null && token != 'offline-demo-token') {
+    if (token != null) {
       try {
         final created = await api.createClient(token!, client);
         clients.insert(0, ClientProfile.fromJson(created));
@@ -308,9 +311,7 @@ class AppState extends ChangeNotifier {
   ) async {
     final index = clients.indexOf(oldClient);
     if (index == -1) return;
-    if (token != null &&
-        token != 'offline-demo-token' &&
-        oldClient.id != null) {
+    if (token != null && oldClient.id != null) {
       try {
         final updated = await api.updateClient(token!, oldClient.id!, client);
         clients[index] = ClientProfile.fromJson(updated);
@@ -325,7 +326,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteClient(ClientProfile client) async {
-    if (token != null && token != 'offline-demo-token' && client.id != null) {
+    if (token != null && client.id != null) {
       try {
         await api.deleteClient(token!, client.id!);
       } catch (_) {
@@ -337,7 +338,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addSite(SiteProfile site) async {
-    if (token != null && token != 'offline-demo-token') {
+    if (token != null) {
       try {
         final created = await api.createSite(token!, site);
         sites.insert(0, SiteProfile.fromJson(created));
@@ -354,7 +355,7 @@ class AppState extends ChangeNotifier {
   Future<void> updateSite(SiteProfile oldSite, SiteProfile site) async {
     final index = sites.indexOf(oldSite);
     if (index == -1) return;
-    if (token != null && token != 'offline-demo-token' && oldSite.id != null) {
+    if (token != null && oldSite.id != null) {
       try {
         final updated = await api.updateSite(token!, oldSite.id!, site);
         sites[index] = SiteProfile.fromJson(updated);
@@ -370,7 +371,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> deleteSite(SiteProfile site) async {
     if (sites.length == 1) return;
-    if (token != null && token != 'offline-demo-token' && site.id != null) {
+    if (token != null && site.id != null) {
       try {
         await api.deleteSite(token!, site.id!);
       } catch (_) {
@@ -382,9 +383,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addEquipment(EquipmentItem item) async {
-    if (token != null &&
-        token != 'offline-demo-token' &&
-        activeSite.id != null) {
+    if (token != null && activeSite.id != null) {
       try {
         final created = await api.createEquipment(token!, activeSite.id!, item);
         equipment.add(EquipmentItem.fromJson(created));
@@ -610,17 +609,60 @@ class ApiClient {
 
   Map<String, dynamic> _decode(http.Response response) {
     if (response.statusCode >= 400) {
-      throw Exception(response.body);
+      throw ApiException(response.statusCode, _errorDetail(response.body));
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
   List<dynamic> _decodeList(http.Response response) {
     if (response.statusCode >= 400) {
-      throw Exception(response.body);
+      throw ApiException(response.statusCode, _errorDetail(response.body));
     }
     return jsonDecode(response.body) as List<dynamic>;
   }
+
+  String _errorDetail(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        final detail = decoded['detail'];
+        if (detail is String) return detail;
+        if (detail is List) return detail.join(', ');
+      }
+    } catch (_) {
+      // Keep raw body fallback below.
+    }
+    return body.isEmpty ? 'Erreur API inconnue' : body;
+  }
+}
+
+class ApiException implements Exception {
+  const ApiException(this.statusCode, this.message);
+
+  final int statusCode;
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+String authErrorMessage(Object error) {
+  if (error is ApiException) {
+    if (error.statusCode == 401) {
+      return 'Email ou mot de passe incorrect.';
+    }
+    if (error.statusCode == 409) {
+      return 'Ce compte existe deja.';
+    }
+    if (error.statusCode == 422) {
+      return 'Verifiez les informations saisies.';
+    }
+    if (error.statusCode >= 500) {
+      return "Erreur serveur API. Verifiez le deploiement Render et la base PostgreSQL.";
+    }
+    return error.message;
+  }
+  return "Impossible de joindre l'API Render. Verifiez la connexion.";
 }
 
 class ClientProfile {
@@ -2015,11 +2057,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _submit(BuildContext context) async {
     setState(() => loading = true);
-    await AppScope.of(context).login(email.text, password.text);
-    if (!context.mounted) return;
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell()));
+    try {
+      await AppScope.of(context).login(email.text.trim(), password.text);
+      if (!context.mounted) return;
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell()));
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(authErrorMessage(error))));
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 }
 
@@ -2035,6 +2086,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final email = TextEditingController();
   final password = TextEditingController();
   String role = 'student';
+  bool loading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -2075,22 +2127,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
           onSelectionChanged: (values) => setState(() => role = values.first),
         ),
         FilledButton.icon(
-          onPressed: () async {
-            await AppScope.of(
-              context,
-            ).register(name.text, email.text, password.text, role: role);
-            if (context.mounted) {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const HomeShell()),
-                (_) => false,
-              );
-            }
-          },
-          icon: const Icon(Icons.person_add_alt),
+          onPressed: loading ? null : () async => _submit(context),
+          icon: loading
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.person_add_alt),
           label: const Text('Creer le compte'),
         ),
       ],
     );
+  }
+
+  Future<void> _submit(BuildContext context) async {
+    setState(() => loading = true);
+    try {
+      await AppScope.of(context).register(
+        name.text.trim(),
+        email.text.trim(),
+        password.text,
+        role: role,
+      );
+      if (!context.mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomeShell()),
+        (_) => false,
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(authErrorMessage(error))));
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 }
 
@@ -3941,7 +4012,7 @@ class ProfileScreen extends StatelessWidget {
           title: state.userName,
           subtitle: 'Role: ${state.isAdmin ? 'administrateur' : 'etudiant'}',
           lines: [
-            'Mode API: ${state.token == 'offline-demo-token' ? 'demo local' : 'connecte'}',
+            'Mode API: ${state.token == null ? 'deconnecte' : 'connecte'}',
             state.userEmail,
             'Swagger backend: /docs',
           ],
@@ -3962,10 +4033,13 @@ class ProfileScreen extends StatelessWidget {
           ),
         NoticeCard(text: academicNotice),
         OutlinedButton.icon(
-          onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const LandingScreen()),
-            (_) => false,
-          ),
+          onPressed: () {
+            state.logout();
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const LandingScreen()),
+              (_) => false,
+            );
+          },
           icon: const Icon(Icons.logout),
           label: const Text('Deconnexion'),
         ),
@@ -4079,9 +4153,7 @@ class AdminDashboardScreen extends StatelessWidget {
             subtitle: state.api.baseUrl,
             lines: [
               state.syncStatus,
-              state.token == 'offline-demo-token'
-                  ? 'Mode demonstration'
-                  : 'Authentifie',
+              state.token == null ? 'Non authentifie' : 'Authentifie',
             ],
           ),
           GridView.count(
