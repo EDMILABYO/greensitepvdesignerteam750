@@ -16,7 +16,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 copy .env.example .env
-uvicorn app.main:app --reload
+python -m uvicorn main:app --reload
 ```
 
 Swagger est disponible sur `http://localhost:8000/docs`.

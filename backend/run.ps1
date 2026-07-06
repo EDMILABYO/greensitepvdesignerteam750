@@ -8,4 +8,4 @@ if (-not (Test-Path $pythonPath)) {
 }
 
 Set-Location $scriptRoot
-& $pythonPath -m uvicorn app.main:app --reload
+& $pythonPath -m uvicorn main:app --reload
