@@ -37,14 +37,14 @@ export function LoginPage() {
           Connecte-toi a l&apos;application avec un compte utilisateur configure dans le backend FastAPI.
         </p>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
+        <form className="auth-form" onSubmit={handleSubmit} autoComplete="off">
           <label>
             <span>Email</span>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
-              autoComplete="email"
+              autoComplete="off"
               required
             />
           </label>
@@ -55,7 +55,7 @@ export function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               type="password"
-              autoComplete="current-password"
+              autoComplete="new-password"
               required
             />
           </label>

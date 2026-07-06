@@ -29,7 +29,22 @@ export async function apiRequest<T>(
   }
 
   if (!response.ok) {
-    const message = await response.text()
+    const rawMessage = await response.text()
+    let message = rawMessage
+
+    try {
+      const payload = JSON.parse(rawMessage) as { detail?: unknown }
+      if (typeof payload.detail === 'string') {
+        message = payload.detail
+      }
+    } catch {
+      // Keep the plain-text response when it is not JSON.
+    }
+
+    if (message === 'Invalid email or password') {
+      message = 'Email ou mot de passe incorrect.'
+    }
+
     throw new Error(message || 'Echec de communication avec le serveur.')
   }
 
