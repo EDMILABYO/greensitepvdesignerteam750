@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import unicodedata
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
@@ -15,6 +16,33 @@ from app.services.auth_service import (
 )
 
 router = APIRouter(tags=["Equipment"])
+
+
+def _is_system_hardware(name: str, category: str) -> bool:
+    value = unicodedata.normalize("NFKD", f"{name} {category}".lower())
+    normalized = "".join(character for character in value if not unicodedata.combining(character))
+    return any(
+        keyword in normalized
+        for keyword in (
+            "panneau",
+            "batterie",
+            "onduleur",
+            "regulateur",
+            "parafoudre",
+            "mise a la terre",
+        )
+    )
+
+
+def _validate_charge_type(name: str, category: str) -> None:
+    if _is_system_hardware(name, category):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Les panneaux, batteries, onduleurs, regulateurs et protections "
+                "doivent etre saisis dans l'inventaire disponible, pas dans les charges."
+            ),
+        )
 
 
 def _validate_placement(
@@ -88,6 +116,7 @@ def add_equipment(
 ) -> Equipment:
     require_site_data_permission(user)
     site = _assert_site_access(site_id, user, session)
+    _validate_charge_type(payload.name, payload.category)
     _validate_placement(site, payload, session)
     equipment = Equipment(**payload.model_dump(), site_id=site_id)
     session.add(equipment)
@@ -126,6 +155,7 @@ def update_equipment(
         key: update_data.get(key, getattr(equipment, key))
         for key in EquipmentCreate.model_fields
     }
+    _validate_charge_type(merged_data["name"], merged_data["category"])
     _validate_placement(
         _assert_site_access(equipment.site_id, user, session),
         EquipmentCreate(**merged_data),

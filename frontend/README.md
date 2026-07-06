@@ -22,7 +22,7 @@ Le dossier racine du projet Vercel doit être `frontend`.
 Configurer cette variable pour les environnements Production et Preview :
 
 ```text
-VITE_API_BASE_URL=https://greensitepvdesignerteam750.onrender.com
+VITE_API_BASE_URL=https://greensitepvdesignerteam750s.onrender.com
 ```
 
 Après toute modification de cette variable, déclencher un nouveau déploiement : les variables
@@ -31,6 +31,9 @@ Vite sont intégrées au bundle pendant la compilation.
 En production, l'URL Render ci-dessus est également utilisée comme valeur de secours lorsque la
 variable est absente. Le fichier `vercel.json` redirige les routes React comme `/login` vers
 `index.html`.
+
+L'ancienne URL Render sans le `s` final est ignorée automatiquement afin qu'une ancienne variable
+Vercel ne reconnecte pas l'application au service obsolète.
 
 ## Déploiement Render et Supabase
 

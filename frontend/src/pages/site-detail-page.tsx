@@ -27,6 +27,14 @@ const equipmentFormInitial = {
   footprint_width_m: 0,
 }
 
+function isSystemHardware(name: string, category: string) {
+  const value = `${name} ${category}`
+    .toLocaleLowerCase('fr')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+  return /panneau|batterie|onduleur|regulateur|parafoudre|mise a la terre/.test(value)
+}
+
 export function SiteDetailPage() {
   const { siteId } = useParams()
   const numericSiteId = Number(siteId)
@@ -55,6 +63,12 @@ export function SiteDetailPage() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (isSystemHardware(form.name, form.category)) {
+      setMessage(
+        "Ce composant appartient a l'inventaire disponible et ne peut pas etre ajoute comme charge.",
+      )
+      return
+    }
     if (!token) {
       setMessage('Connexion requise pour ajouter un equipement.')
       return
@@ -98,6 +112,12 @@ export function SiteDetailPage() {
   }
 
   async function handleUpdateEquipment(equipmentId: number) {
+    if (isSystemHardware(editingForm.name, editingForm.category)) {
+      setMessage(
+        "Ce composant appartient a l'inventaire disponible et ne peut pas rester dans les charges.",
+      )
+      return
+    }
     if (!token) {
       setMessage('Connexion requise pour modifier un equipement.')
       return
@@ -215,7 +235,12 @@ export function SiteDetailPage() {
               </label>
               <label>
                 <span>Categorie de charge</span>
-                <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} required />
+                <input
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  placeholder="Radio, transmission, climatisation..."
+                  required
+                />
               </label>
               <label>
                 <span>Puissance (W)</span>

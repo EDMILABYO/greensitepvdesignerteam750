@@ -13,6 +13,22 @@ from app.utils.security import hash_password
 def run() -> None:
     create_db_and_tables()
     with Session(engine) as session:
+        # Create admin user if not exists
+        admin = session.exec(
+            select(User).where(User.email == "admin@hayat-solar-sizer.com")
+        ).first()
+        if not admin:
+            admin = User(
+                full_name="Administrateur",
+                email="admin@hayat-solar-sizer.com",
+                hashed_password=hash_password("admin123"),
+                role=UserRole.admin,
+            )
+            session.add(admin)
+            session.commit()
+            session.refresh(admin)
+            print("Created admin user: admin@hayat-solar-sizer.com / admin123")
+
         existing = session.exec(
             select(User).where(User.email == "student@example.com")
         ).first()
