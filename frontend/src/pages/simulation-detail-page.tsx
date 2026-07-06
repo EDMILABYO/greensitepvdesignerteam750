@@ -217,6 +217,10 @@ export function SimulationDetailPage() {
             status: item.supported_quantity > 0 ? 'PARTIEL' : 'NON_ALIMENTABLE',
           })) ?? [],
         ]
+  const automaticRequirementRows = componentInventoryPlan?.rows ?? []
+  const hasRecordedLoads = siteEquipment.length > 0
+  const shouldShowAutomaticRequirements =
+    !hasRecordedLoads && equipmentAnalysisRows.length === 0 && automaticRequirementRows.length > 0
   const possibleMisclassifiedHardware = siteEquipment.filter(looksLikeSystemHardware)
 
   async function handleSaveHardware(event: React.FormEvent<HTMLFormElement>) {
@@ -578,51 +582,80 @@ export function SimulationDetailPage() {
                 <div className="table-panel__header">
                   <div>
                     <h3>
-                    {equipmentPlan.source === 'entered_quantities'
-                      ? 'Resultat: charges du site pouvant fonctionner avec le stock saisi'
-                      : 'Resultat: analyse des charges du site'}
+                      {shouldShowAutomaticRequirements
+                        ? 'Resultat automatique des equipements calcules'
+                        : equipmentPlan.source === 'entered_quantities'
+                          ? 'Resultat: charges du site pouvant fonctionner avec le stock saisi'
+                          : 'Resultat: analyse des charges du site'}
                     </h3>
                     <p className="panel-message">
-                      Ce tableau analyse les charges du site enregistrees plus bas et indique
-                      combien d'unites peuvent reellement fonctionner avec le materiel de secours
-                      que tu as saisi ci-dessus.
+                      {shouldShowAutomaticRequirements
+                        ? "Aucune charge detaillee n'est encore enregistree sur le site. Le systeme affiche donc automatiquement les equipements calcules et l'ecart avec l'inventaire saisi."
+                        : "Ce tableau analyse les charges du site enregistrees plus bas et indique combien d'unites peuvent reellement fonctionner avec le materiel de secours que tu as saisi ci-dessus."}
                     </p>
                   </div>
                   <Link className="button-link button-link--ghost" to={`/sites/${data.site_id}`}>
-                    Gerer les charges du site
+                    {shouldShowAutomaticRequirements
+                      ? 'Ajouter les charges du site'
+                      : 'Gerer les charges du site'}
                   </Link>
                 </div>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Equipement</th>
-                      <th>Categorie</th>
-                      <th>Puissance unitaire</th>
-                      <th>Demande</th>
-                      <th>Utilisable</th>
-                      <th>A limiter</th>
-                      <th>Statut</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {equipmentAnalysisRows.map((item) => (
-                      <tr key={`${item.name}-${item.category}-${item.reason}`}>
-                        <td>{item.name}</td>
-                        <td>{item.category || '-'}</td>
-                        <td>{formatNumber(item.unit_power_watts)} W</td>
-                        <td>{item.requested_quantity}</td>
-                        <td>{item.supported_quantity}</td>
-                        <td>{item.unsupported_quantity}</td>
-                        <td>{humanizeStatus(item.status)}</td>
-                      </tr>
-                    ))}
-                    {equipmentAnalysisRows.length === 0 ? (
+                {shouldShowAutomaticRequirements ? (
+                  <table className="data-table">
+                    <thead>
                       <tr>
-                        <td colSpan={7}>Aucun equipement enregistre sur ce site.</td>
+                        <th>Equipement calcule</th>
+                        <th>Besoin</th>
+                        <th>Disponible</th>
+                        <th>Ecart</th>
+                        <th>Statut</th>
                       </tr>
-                    ) : null}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {automaticRequirementRows.map((row) => (
+                        <tr key={row.component}>
+                          <td>{row.component}</td>
+                          <td>{row.required_label}</td>
+                          <td>{row.available_label}</td>
+                          <td>{row.gap_label}</td>
+                          <td>{humanizeStatus(row.status)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Equipement</th>
+                        <th>Categorie</th>
+                        <th>Puissance unitaire</th>
+                        <th>Demande</th>
+                        <th>Utilisable</th>
+                        <th>A limiter</th>
+                        <th>Statut</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {equipmentAnalysisRows.map((item) => (
+                        <tr key={`${item.name}-${item.category}-${item.reason}`}>
+                          <td>{item.name}</td>
+                          <td>{item.category || '-'}</td>
+                          <td>{formatNumber(item.unit_power_watts)} W</td>
+                          <td>{item.requested_quantity}</td>
+                          <td>{item.supported_quantity}</td>
+                          <td>{item.unsupported_quantity}</td>
+                          <td>{humanizeStatus(item.status)}</td>
+                        </tr>
+                      ))}
+                      {equipmentAnalysisRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={7}>Aucun equipement enregistre sur ce site.</td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                )}
               </section>
             </div>
           ) : null}
@@ -801,7 +834,10 @@ export function SimulationDetailPage() {
       ) : (
         <section className="panel">
           <h3>Aucun resultat calcule</h3>
-          <p>Cree les equipements du site puis lance le calcul pour obtenir l'etat de sortie.</p>
+          <p>
+            Ajoute des charges du site ou renseigne une puissance critique, puis lance le calcul
+            pour obtenir l'etat de sortie.
+          </p>
         </section>
       )}
     </section>

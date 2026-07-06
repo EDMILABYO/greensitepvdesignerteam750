@@ -172,7 +172,13 @@ def calculate(
         session.exec(select(Equipment).where(Equipment.site_id == site.id)).all()
     )
     if not equipment and simulation.critical_active_power_w <= 0:
-        raise HTTPException(status_code=400, detail="Add equipment before calculation")
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Ajoutez au moins une charge du site ou renseignez une puissance "
+                "critique avant de lancer le calcul."
+            ),
+        )
 
     existing = _result_for_simulation(session, simulation.id or 0)
     if existing:

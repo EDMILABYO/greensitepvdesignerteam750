@@ -45,6 +45,11 @@ export async function apiRequest<T>(
       message = 'Email ou mot de passe incorrect.'
     }
 
+    if (message === 'Add equipment before calculation') {
+      message =
+        'Ajoutez au moins une charge du site ou renseignez une puissance critique avant de lancer le calcul.'
+    }
+
     throw new Error(message || 'Echec de communication avec le serveur.')
   }
 
