@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlmodel import Session, select
 
 from app.database import get_session
@@ -6,16 +7,22 @@ from app.models.equipment import Equipment
 from app.models.result import SimulationResult
 from app.models.simulation import Simulation
 from app.models.site import Site
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.schemas.simulation_schema import (
     ReportRead,
     SimulationCreate,
     SimulationDetail,
     SimulationRead,
     SimulationResultRead,
+    SimulationUpdate,
 )
-from app.services.auth_service import get_current_user
+from app.services.auth_service import (
+    can_view_all_records,
+    get_current_user,
+    require_simulation_permission,
+)
 from app.services.calculation_service import calculate_simulation
+from app.services.report_service import build_report_payload, generate_report_pdf
 
 router = APIRouter(prefix="/simulations", tags=["Simulations"])
 
@@ -27,14 +34,14 @@ ACADEMIC_NOTICE = (
 
 def _site_for_user(site_id: int, user: User, session: Session) -> Site:
     site = session.get(Site, site_id)
-    if not site or (site.user_id != user.id and user.role != UserRole.admin):
+    if not site or (site.user_id != user.id and not can_view_all_records(user)):
         raise HTTPException(status_code=404, detail="Site not found")
     return site
 
 
 def _simulation_for_user(simulation_id: int, user: User, session: Session) -> Simulation:
     simulation = session.get(Simulation, simulation_id)
-    if not simulation or (simulation.user_id != user.id and user.role != UserRole.admin):
+    if not simulation or (simulation.user_id != user.id and not can_view_all_records(user)):
         raise HTTPException(status_code=404, detail="Simulation not found")
     return simulation
 
@@ -51,6 +58,7 @@ def create_simulation(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> Simulation:
+    require_simulation_permission(user)
     _site_for_user(payload.site_id, user, session)
     simulation = Simulation(**payload.model_dump(), user_id=user.id)
     session.add(simulation)
@@ -65,7 +73,7 @@ def list_simulations(
     session: Session = Depends(get_session),
 ) -> list[SimulationDetail]:
     statement = select(Simulation)
-    if user.role != UserRole.admin:
+    if not can_view_all_records(user):
         statement = statement.where(Simulation.user_id == user.id)
     simulations = session.exec(statement.order_by(Simulation.created_at.desc())).all()
     details: list[SimulationDetail] = []
@@ -83,7 +91,7 @@ def dashboard_summary(
     session: Session = Depends(get_session),
 ) -> dict[str, float | int | str | None]:
     statement = select(Simulation)
-    if user.role != UserRole.admin:
+    if not can_view_all_records(user):
         statement = statement.where(Simulation.user_id == user.id)
     simulations = session.exec(statement.order_by(Simulation.created_at.desc())).all()
     results: list[SimulationResult] = []
@@ -118,12 +126,31 @@ def get_simulation(
     return SimulationDetail(**data)
 
 
+@router.put("/{simulation_id}", response_model=SimulationRead)
+def update_simulation(
+    simulation_id: int,
+    payload: SimulationUpdate,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> Simulation:
+    require_simulation_permission(user)
+    simulation = _simulation_for_user(simulation_id, user, session)
+    _site_for_user(payload.site_id, user, session)
+    for field, value in payload.model_dump().items():
+        setattr(simulation, field, value)
+    session.add(simulation)
+    session.commit()
+    session.refresh(simulation)
+    return simulation
+
+
 @router.delete("/{simulation_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_simulation(
     simulation_id: int,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> None:
+    require_simulation_permission(user)
     simulation = _simulation_for_user(simulation_id, user, session)
     result = _result_for_simulation(session, simulation.id or 0)
     if result:
@@ -138,12 +165,13 @@ def calculate(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> SimulationResult:
+    require_simulation_permission(user)
     simulation = _simulation_for_user(simulation_id, user, session)
     site = _site_for_user(simulation.site_id, user, session)
     equipment = list(
         session.exec(select(Equipment).where(Equipment.site_id == site.id)).all()
     )
-    if not equipment:
+    if not equipment and simulation.critical_active_power_w <= 0:
         raise HTTPException(status_code=400, detail="Add equipment before calculation")
 
     existing = _result_for_simulation(session, simulation.id or 0)
@@ -171,17 +199,38 @@ def report(
         session.exec(select(Equipment).where(Equipment.site_id == site.id)).all()
     )
     result = _result_for_simulation(session, simulation.id or 0)
-    return ReportRead(
-        academic_notice=ACADEMIC_NOTICE,
+    return build_report_payload(
         site=site,
-        equipment=equipment,
         simulation=simulation,
+        equipment=equipment,
         result=result,
-        assumptions=[
-            "Toutes les donnees sont simulees pour une demonstration academique.",
-            "La puissance PV est calculee avec l'energie corrigee et les heures solaires.",
-            "Les batteries integrent la profondeur de decharge choisie.",
-            "Le regulateur et l'onduleur incluent une marge de securite de 25%.",
-        ],
+        academic_notice=ACADEMIC_NOTICE,
     )
 
+
+@router.get("/{simulation_id}/report/pdf")
+def report_pdf(
+    simulation_id: int,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> Response:
+    simulation = _simulation_for_user(simulation_id, user, session)
+    site = _site_for_user(simulation.site_id, user, session)
+    equipment = list(
+        session.exec(select(Equipment).where(Equipment.site_id == site.id)).all()
+    )
+    result = _result_for_simulation(session, simulation.id or 0)
+    report_data = build_report_payload(
+        site=site,
+        simulation=simulation,
+        equipment=equipment,
+        result=result,
+        academic_notice=ACADEMIC_NOTICE,
+    )
+    pdf_bytes = generate_report_pdf(report_data)
+    filename = f"hayat-solar-sizer-rapport-simulation-{simulation_id}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

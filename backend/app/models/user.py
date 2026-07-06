@@ -7,6 +7,10 @@ from sqlmodel import Field, SQLModel
 
 class UserRole(str, Enum):
     admin = "admin"
+    manager = "manager"
+    engineer = "engineer"
+    operator = "operator"
+    observer = "observer"
     student = "student"
 
 
@@ -20,4 +24,3 @@ class User(SQLModel, table=True):
     role: UserRole = Field(default=UserRole.student)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-

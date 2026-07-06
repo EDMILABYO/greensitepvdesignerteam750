@@ -14,6 +14,11 @@ class Equipment(SQLModel, table=True):
     power_watts: float = Field(gt=0)
     quantity: int = Field(default=1, ge=1)
     hours_per_day: float = Field(default=24, ge=0, le=24)
+    is_critical: bool = Field(default=True)
+    notes: str = ""
+    position_x_m: float = Field(default=0, ge=0)
+    position_y_m: float = Field(default=0, ge=0)
+    footprint_length_m: float = Field(default=0, ge=0)
+    footprint_width_m: float = Field(default=0, ge=0)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-

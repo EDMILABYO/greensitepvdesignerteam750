@@ -24,7 +24,6 @@ def register(payload: UserCreate, session: Session = Depends(get_session)) -> To
     )
     session.add(user)
     session.commit()
-    session.refresh(user)
     token = create_access_token(user.id, {"role": user.role})
     return Token(access_token=token, user=UserRead.model_validate(user))
 
@@ -37,7 +36,6 @@ def login(payload: LoginRequest, session: Session = Depends(get_session)) -> Tok
     user.updated_at = datetime.now(timezone.utc)
     session.add(user)
     session.commit()
-    session.refresh(user)
     token = create_access_token(user.id, {"role": user.role})
     return Token(access_token=token, user=UserRead.model_validate(user))
 
@@ -45,4 +43,3 @@ def login(payload: LoginRequest, session: Session = Depends(get_session)) -> Tok
 @router.get("/me", response_model=UserRead)
 def me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
-
