@@ -1,32 +1,39 @@
-# React + TypeScript + Vite
+# HAYAT-Solar Sizer — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Interface React/Vite de l'application de dimensionnement photovoltaïque.
 
-Currently, two official plugins are available:
+## Développement local
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```powershell
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Sans configuration supplémentaire, le frontend local utilise :
+
+```text
+http://localhost:8000
+```
+
+## Déploiement Vercel
+
+Le dossier racine du projet Vercel doit être `frontend`.
+
+Configurer cette variable pour les environnements Production et Preview :
+
+```text
+VITE_API_BASE_URL=https://greensitepvdesignerteam750.onrender.com
+```
+
+Après toute modification de cette variable, déclencher un nouveau déploiement : les variables
+Vite sont intégrées au bundle pendant la compilation.
+
+En production, l'URL Render ci-dessus est également utilisée comme valeur de secours lorsque la
+variable est absente. Le fichier `vercel.json` redirige les routes React comme `/login` vers
+`index.html`.
+
+## Déploiement Render et Supabase
+
+Dans Render, définir `DATABASE_URL` avec la chaîne de connexion Supabase. Cette valeur reste
+secrète et ne doit pas être ajoutée au dépôt. Le fichier `backend/render.yaml` attend cette
+variable comme valeur externe.
