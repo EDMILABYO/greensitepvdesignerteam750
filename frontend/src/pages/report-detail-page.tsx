@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { SectionTitle } from '../components/section-title'
 import { StatusBadge } from '../components/status-badge'
@@ -73,6 +74,7 @@ export function ReportDetailPage() {
   const { simulationId } = useParams()
   const numericSimulationId = Number(simulationId)
   const { token } = useAuth()
+  const [pdfBusyAction, setPdfBusyAction] = useState<'download' | 'print' | null>(null)
   const { data, loading, error } = useProtectedQuery({
     fallbackData: null,
     queryKey: `simulation-report-${numericSimulationId}`,
@@ -112,27 +114,64 @@ export function ReportDetailPage() {
 
   async function handleDownloadPdf() {
     if (!token) return
-    const blob = await downloadSimulationReportPdf(token, simulation.id)
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `hayat-solar-sizer-rapport-simulation-${simulation.id}.pdf`
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
+    setPdfBusyAction('download')
+    try {
+      const blob = await downloadSimulationReportPdf(token, simulation.id)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `hayat-solar-sizer-rapport-simulation-${simulation.id}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } finally {
+      setPdfBusyAction(null)
+    }
   }
 
-  function handleExportJson() {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `hayat-solar-sizer-rapport-simulation-${simulation.id}.json`
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
+  async function handlePrintPdf() {
+    if (!token) return
+    setPdfBusyAction('print')
+
+    try {
+      const blob = await downloadSimulationReportPdf(token, simulation.id)
+      const url = URL.createObjectURL(blob)
+      const iframe = document.createElement('iframe')
+      iframe.style.position = 'fixed'
+      iframe.style.width = '0'
+      iframe.style.height = '0'
+      iframe.style.border = '0'
+      iframe.style.right = '0'
+      iframe.style.bottom = '0'
+      iframe.src = url
+
+      let cleaned = false
+      const cleanup = () => {
+        if (cleaned) return
+        cleaned = true
+        iframe.remove()
+        URL.revokeObjectURL(url)
+        window.removeEventListener('afterprint', cleanup)
+      }
+
+      iframe.onload = () => {
+        const printWindow = iframe.contentWindow
+        if (!printWindow) {
+          cleanup()
+          return
+        }
+
+        window.addEventListener('afterprint', cleanup)
+        printWindow.focus()
+        printWindow.print()
+        window.setTimeout(cleanup, 60000)
+      }
+
+      document.body.appendChild(iframe)
+    } finally {
+      setPdfBusyAction(null)
+    }
   }
 
   return (
@@ -144,14 +183,21 @@ export function ReportDetailPage() {
       />
 
       <div className="form-actions">
-        <button className="button-link button-link--solid" type="button" onClick={handleDownloadPdf}>
+        <button
+          className="button-link button-link--solid"
+          type="button"
+          onClick={handleDownloadPdf}
+          disabled={pdfBusyAction !== null}
+        >
           Télécharger PDF
         </button>
-        <button className="button-link button-link--ghost" type="button" onClick={handleExportJson}>
-          Export JSON
-        </button>
-        <button className="button-link button-link--ghost" type="button" onClick={() => window.print()}>
-          Imprimer
+        <button
+          className="button-link button-link--ghost"
+          type="button"
+          onClick={handlePrintPdf}
+          disabled={pdfBusyAction !== null}
+        >
+          {pdfBusyAction === 'print' ? 'Preparation de l impression...' : 'Imprimer'}
         </button>
         <Link className="button-link button-link--ghost" to={`/simulations/${simulation.id}`}>
           Retour à la simulation

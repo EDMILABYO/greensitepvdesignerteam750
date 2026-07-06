@@ -335,7 +335,7 @@ export function SimulationDetailPage() {
           Retour aux simulations
         </Link>
         <Link className="button-link button-link--ghost" to={`/sites/${data.site_id}`}>
-          Gerer les equipements du site
+          Gerer les charges du site
         </Link>
         <Link className="button-link button-link--ghost" to={`/simulations/${data.id}/edit`}>
           Modifier la simulation
@@ -355,6 +355,38 @@ export function SimulationDetailPage() {
         {loading ? <p className="form-message">Chargement du detail simulation...</p> : null}
         {error ? <p className="form-error">API indisponible ou simulation non chargee.</p> : null}
       </div>
+
+      {!hasRecordedLoads ? (
+        <section className="panel">
+          <h3>Ou saisir les charges du site ?</h3>
+          <div className="stack-list">
+            <div className="list-card list-card--warning">
+              <strong>Les charges du site ne se mettent pas ici</strong>
+              <p>
+                La zone ci-dessous sert uniquement a l'inventaire disponible: panneaux, batteries,
+                onduleur, regulateurs et protections.
+              </p>
+            </div>
+            <div className="list-card">
+              <strong>Pour ajouter les charges a alimenter</strong>
+              <p>
+                Clique sur <strong>Gerer les charges du site</strong>, puis ajoute par exemple une
+                radio, un BTS, un routeur, une climatisation ou un eclairage avec leur puissance,
+                leur quantite et leur nombre d'heures.
+              </p>
+            </div>
+            <div className="list-card">
+              <strong>Exemple</strong>
+              <p>Nom: Radio BTS · Categorie: Radio · Puissance: 1000 W · Quantite: 1 · Critique: Oui</p>
+            </div>
+          </div>
+          <div className="form-actions" style={{ marginTop: '1rem' }}>
+            <Link className="button-link button-link--solid" to={`/sites/${data.site_id}`}>
+              Ouvrir le formulaire des charges
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <section className="panel anchor-section" id="inventaire-materiel">
         <div className="inventory-header">
