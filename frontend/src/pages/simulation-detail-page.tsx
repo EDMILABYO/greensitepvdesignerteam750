@@ -388,6 +388,26 @@ export function SimulationDetailPage() {
         </section>
       ) : null}
 
+      <section className="panel">
+        <h3>Mode de secours HAYATCOM</h3>
+        <div className="stack-list">
+          <div className="list-card">
+            <strong>Condition de fonctionnement</strong>
+            <p>
+              Le calcul verifie le secours des charges critiques lorsque la SNEL est absente et que
+              le groupe ne prend pas automatiquement le relais.
+            </p>
+          </div>
+          <div className="list-card">
+            <strong>Grandeurs prioritaires</strong>
+            <p>
+              La simulation dimensionne d'abord la puissance active critique et le temps de secours,
+              puis en deduit les panneaux, batteries, regulateurs, onduleur et protections.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section className="panel anchor-section" id="inventaire-materiel">
         <div className="inventory-header">
           <div>
@@ -513,9 +533,32 @@ export function SimulationDetailPage() {
 
           <div className="page-grid page-grid--metrics">
             <MetricCard
-              label="PV requis"
-              value={`${formatNumber(result.required_pv_power_wc)} Wc`}
-              hint={`${result.number_of_panels} panneaux`}
+              label="Puissance active"
+              value={`${formatNumber(result.critical_power_watts)} W`}
+              hint="Charges critiques retenues"
+            />
+            <MetricCard
+              label="Puissance apparente"
+              value={`${formatNumber(result.apparent_power_va)} VA`}
+              hint="Base de l'onduleur"
+            />
+            <MetricCard
+              label="Regulateur"
+              value={`${formatNumber(result.controller_current_a)} A`}
+              hint="Courant recommande"
+            />
+            <MetricCard
+              label="Onduleur"
+              value={`${formatNumber(result.inverter_power_watts)} W`}
+              hint="Puissance recommandee"
+            />
+          </div>
+
+          <div className="page-grid page-grid--metrics">
+            <MetricCard
+              label="Panneaux"
+              value={`${result.number_of_panels}`}
+              hint={`${formatNumber(result.required_pv_power_wc)} Wc requis`}
             />
             <MetricCard
               label="Batteries"
@@ -528,16 +571,16 @@ export function SimulationDetailPage() {
               hint={`Disponible: ${formatNumber(result.available_surface_m2)} m2`}
             />
             <MetricCard
-              label="Onduleur"
-              value={`${formatNumber(result.inverter_power_watts)} W`}
-              hint="Puissance recommandee"
+              label="Autonomie cible"
+              value={`${formatNumber(data.backup_time_hours)} h`}
+              hint="Besoin declare"
             />
           </div>
 
           <div className="page-grid">
             <section className="panel">
               <div className="list-card__row">
-                <h3>Resume rapide</h3>
+                <h3>Etat de sortie prioritaire</h3>
                 <StatusBadge status={result.feasibility_status} />
               </div>
               <div className="stack-list" style={{ marginTop: '1rem' }}>
@@ -546,12 +589,19 @@ export function SimulationDetailPage() {
                   <p>{formatNumber(result.critical_power_watts)} W · {formatNumber(result.critical_energy_wh)} Wh</p>
                 </div>
                 <div className="list-card">
-                  <strong>Surface</strong>
-                  <p>{formatNumber(result.available_surface_m2)} m2 disponible pour {formatNumber(result.panel_surface_with_spacing_m2)} m2 requis.</p>
+                  <strong>Baie radio, BTS et climatisation critique</strong>
+                  <p>
+                    Ces usages sont integres dans la charge critique declaree et dans le calcul du
+                    secours photovoltaque.
+                  </p>
                 </div>
                 <div className="list-card">
                   <strong>Delestage</strong>
                   <p>{result.load_shedding_message}</p>
+                </div>
+                <div className="list-card">
+                  <strong>Surface</strong>
+                  <p>{formatNumber(result.available_surface_m2)} m2 disponible pour {formatNumber(result.panel_surface_with_spacing_m2)} m2 requis.</p>
                 </div>
               </div>
             </section>
@@ -577,6 +627,48 @@ export function SimulationDetailPage() {
                       <li key={line}>{line}</li>
                     ))}
                   </ul>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div className="page-grid">
+            <section className="panel">
+              <h3>Protections electriques recommandees</h3>
+              <div className="stack-list">
+                <div className="list-card">
+                  <strong>Section cable DC</strong>
+                  <p>{formatNumber(result.dc_cable_section_mm2)} mm2</p>
+                </div>
+                <div className="list-card">
+                  <strong>Section cable AC</strong>
+                  <p>{formatNumber(result.ac_cable_section_mm2)} mm2</p>
+                </div>
+                <div className="list-card">
+                  <strong>Disjoncteur DC</strong>
+                  <p>{formatNumber(result.dc_breaker_rating_a)} A</p>
+                </div>
+                <div className="list-card">
+                  <strong>Disjoncteur AC</strong>
+                  <p>{formatNumber(result.ac_breaker_rating_a)} A</p>
+                </div>
+              </div>
+            </section>
+
+            <section className="panel">
+              <h3>Protection contre les intemperies</h3>
+              <div className="stack-list">
+                <div className="list-card">
+                  <strong>Parafoudre DC</strong>
+                  <p>{result.dc_spd_required ? 'Requis' : 'Non requis'}</p>
+                </div>
+                <div className="list-card">
+                  <strong>Parafoudre AC</strong>
+                  <p>{result.ac_spd_required ? 'Requis' : 'Non requis'}</p>
+                </div>
+                <div className="list-card">
+                  <strong>Mise a la terre</strong>
+                  <p>{humanizeStatus(result.grounding_status)}</p>
                 </div>
               </div>
             </section>

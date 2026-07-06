@@ -9,7 +9,7 @@ import { listSites } from '../services/site-service'
 import { useAuth } from '../hooks/use-auth'
 import { canManageSimulations } from '../lib/permissions'
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 
 const initialForm = {
   site_id: 1,
@@ -142,11 +142,11 @@ export function NewSimulationPage() {
     <section className="page">
       <SectionTitle
         eyebrow="Nouveau calcul"
-        title={isEditMode ? 'Modification de la simulation' : 'Calcul simple de secours photovoltaque'}
+        title={isEditMode ? 'Modification de la simulation' : 'Dimensionnement du back-up photovoltaque HAYATCOM'}
         text={
           isEditMode
-            ? "Ajuste les parametres de la simulation puis enregistre les changements."
-            : "Renseigne d'abord le besoin essentiel. Les reglages techniques avances restent disponibles plus bas uniquement si tu veux affiner."
+            ? "Ajuste les charges critiques, l'autonomie voulue et les parametres de secours avant de relancer le calcul."
+            : "Commence par le besoin metier reel: quelles charges critiques doivent rester alimentees, et pendant combien de temps en cas d'absence SNEL et de non-demarrage du groupe."
         }
       />
 
@@ -154,7 +154,29 @@ export function NewSimulationPage() {
 
       <div className="page-grid">
         <section className="panel">
-          <h3>1. Besoin principal</h3>
+          <h3>Mode de fonctionnement HAYATCOM</h3>
+          <div className="stack-list">
+            <div className="list-card">
+              <strong>Sources considerees</strong>
+              <p>SNEL, panneaux solaires et groupe electrogene.</p>
+            </div>
+            <div className="list-card">
+              <strong>Scenario de back-up</strong>
+              <p>Si la SNEL est absente et que le groupe ne demarre pas automatiquement, le systeme solaire prend le relais sur les charges critiques.</p>
+            </div>
+            <div className="list-card">
+              <strong>Deux donnees d'entree essentielles</strong>
+              <p>La puissance des charges critiques a maintenir et le temps de secours souhaite.</p>
+            </div>
+            <div className="list-card">
+              <strong>Etat de sortie attendu</strong>
+              <p>Puissance active, puissance apparente, regulateur, onduleur, batteries, panneaux, climatisation critique, baie radio et protections electriques.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="panel">
+          <h3>1. Charges critiques et autonomie</h3>
           <form className="form-grid" onSubmit={handleSubmit}>
             <label className="form-grid__full">
               <span>Site cible</span>
@@ -170,8 +192,22 @@ export function NewSimulationPage() {
               </select>
             </label>
 
+            <div className="form-grid__full list-card list-card--accent">
+              <strong>Saisie recommandee</strong>
+              <p>
+                Si tu connais deja les equipements critiques du site, commence par les declarer dans
+                les charges du site. Ici, tu peux ensuite saisir la synthese energetique necessaire
+                au back-up.
+              </p>
+              <div className="form-actions" style={{ marginTop: '0.75rem' }}>
+                <Link className="button-link button-link--ghost" to={`/sites/${form.site_id}`}>
+                  Ouvrir les charges du site
+                </Link>
+              </div>
+            </div>
+
             <label>
-              <span>Puissance critique totale (W)</span>
+              <span>Puissance active critique totale (W)</span>
               <input
                 type="number"
                 min="0"
@@ -182,7 +218,7 @@ export function NewSimulationPage() {
             </label>
 
             <label>
-              <span>Temps de secours (h)</span>
+              <span>Temps de secours vise (h)</span>
               <input
                 type="number"
                 min="0.1"
@@ -205,7 +241,7 @@ export function NewSimulationPage() {
             </label>
 
             <label>
-              <span>Climatiseur (W)</span>
+              <span>Climatiseur critique (W)</span>
               <input
                 type="number"
                 min="0"
@@ -215,7 +251,7 @@ export function NewSimulationPage() {
             </label>
 
             <label>
-              <span>Autres charges critiques (W)</span>
+              <span>Baie radio et autres charges critiques additionnelles (W)</span>
               <input
                 type="number"
                 min="0"
@@ -225,7 +261,7 @@ export function NewSimulationPage() {
             </label>
 
             <label>
-              <span>Charges non critiques (W)</span>
+              <span>Charges non critiques delestables (W)</span>
               <input
                 type="number"
                 min="0"
@@ -243,8 +279,17 @@ export function NewSimulationPage() {
               <span>Le climatiseur fait partie des charges critiques</span>
             </label>
 
+            <div className="form-grid__full list-card">
+              <strong>Conseil de saisie</strong>
+              <p>
+                Si la charge critique totale n'est pas encore connue, declare d'abord les charges du
+                site comme BTS, radio, routeur, transmission, climatisation et eclairage, puis
+                reviens ici pour consolider la puissance active.
+              </p>
+            </div>
+
             <div className="form-grid__full simple-form-section">
-              <h4>2. Valeurs standards des composants</h4>
+              <h4>2. Composants et stock de back-up disponibles</h4>
               <div className="form-grid">
                 <label>
                   <span>Puissance panneau (Wc)</span>
@@ -514,19 +559,19 @@ export function NewSimulationPage() {
         </section>
 
         <section className="panel">
-          <h3>Comment utiliser cette page</h3>
+          <h3>Parcours de calcul</h3>
           <div className="stack-list">
             <div className="list-card">
               <strong>Etape 1</strong>
-              <p>Choisir le site puis saisir la puissance critique et le temps de secours.</p>
+              <p>Choisir le site et identifier les charges critiques qui doivent rester alimentees.</p>
             </div>
             <div className="list-card">
               <strong>Etape 2</strong>
-              <p>Laisser les valeurs standards si tu ne veux pas entrer dans les details techniques.</p>
+              <p>Saisir la puissance active critique, le temps de secours, puis le stock de back-up disponible.</p>
             </div>
             <div className="list-card">
               <strong>Etape 3</strong>
-              <p>Creer la simulation puis lancer le calcul pour obtenir le verdict final.</p>
+              <p>Lancer le calcul pour obtenir la puissance apparente, les panneaux, le regulateur, l'onduleur, les batteries et les protections.</p>
             </div>
           </div>
         </section>

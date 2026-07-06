@@ -34,7 +34,7 @@ export function LoginPage() {
         <span className="section-title__eyebrow">Connexion</span>
         <h1>HAYAT-Solar Sizer</h1>
         <p>
-          Connecte-toi a l&apos;application avec un compte utilisateur configure dans le backend FastAPI.
+          Connecte-toi a l&apos;application avec ton compte utilisateur.
         </p>
 
         <form className="auth-form" onSubmit={handleSubmit} autoComplete="off">
