@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../hooks/use-auth'
 import { canManageSimulations, canManageUsers } from '../lib/permissions'
@@ -12,25 +13,27 @@ const navigationItems = [
 
 export function AppShell() {
   const { user, logout } = useAuth()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const navigation = navigationItems
     .filter((item) => item.to !== '/simulations/new' || canManageSimulations(user?.role))
     .concat(canManageUsers(user?.role) ? [{ to: '/users', label: 'Utilisateurs' }] : [])
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      <aside className={`sidebar ${isMobileMenuOpen ? 'sidebar--open' : ''}`}>
         <div className="brand">
           <span className="brand__kicker">HAYATCOM</span>
           <strong>HAYAT-Solar Sizer</strong>
           <p>Plateforme de dimensionnement photovoltaique pour sites telecom.</p>
         </div>
 
-        <nav className="sidebar__nav" aria-label="Navigation principale">
+        <nav id="mobile-navigation" className="sidebar__nav" aria-label="Navigation principale">
           {navigation.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === '/'}
+              onClick={() => setIsMobileMenuOpen(false)}
               className={({ isActive }) =>
                 isActive ? 'sidebar__link sidebar__link--active' : 'sidebar__link'
               }
@@ -44,6 +47,18 @@ export function AppShell() {
       <main className="main-content">
         <header className="topbar">
           <div className="topbar__title-block">
+            <button
+              className="mobile-menu-toggle"
+              type="button"
+              aria-label={isMobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-navigation"
+              onClick={() => setIsMobileMenuOpen((open) => !open)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
             <span className="topbar__eyebrow">Tableau de bord</span>
             <h1>HAYAT-Solar Sizer</h1>
           </div>
@@ -54,6 +69,15 @@ export function AppShell() {
             </button>
           </div>
         </header>
+
+        {isMobileMenuOpen ? (
+          <button
+            className="mobile-menu-backdrop"
+            type="button"
+            aria-label="Fermer le menu"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        ) : null}
 
         <div className="content-scroll">
           <Outlet />
