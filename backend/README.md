@@ -57,3 +57,5 @@ ENVIRONMENT=production
 Depuis votre machine locale, utilisez l'External Database URL Render avec le domaine complet `*.render.com` et `sslmode=require`. Dans un service web Render connecte a la meme base, vous pouvez utiliser l'Internal Database URL.
 
 Le fichier `render.yaml` peut etre utilise pour creer le web service et la base PostgreSQL.
+Le `startCommand` lance `alembic upgrade head` avant `uvicorn` afin d'appliquer les mises a jour
+de schema, notamment les roles utilisateur etendus.

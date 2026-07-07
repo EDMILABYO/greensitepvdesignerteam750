@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.database import get_session
@@ -8,6 +9,7 @@ from app.services.auth_service import can_manage_users, get_current_user
 from app.utils.security import hash_password
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
+SUPPORTED_USER_ROLES = ", ".join(role.value for role in UserRole)
 
 
 def require_admin(user: User = Depends(get_current_user)) -> User:
@@ -44,7 +46,17 @@ def create_user(
         role=payload.role,
     )
     session.add(user)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Database rejected the user record. "
+                f"Supported roles: {SUPPORTED_USER_ROLES}"
+            ),
+        ) from exc
     session.refresh(user)
     return user
 
@@ -81,7 +93,17 @@ def update_user(
         raise HTTPException(status_code=400, detail="Admin cannot remove own admin role")
 
     session.add(user)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Database rejected the user update. "
+                f"Supported roles: {SUPPORTED_USER_ROLES}"
+            ),
+        ) from exc
     session.refresh(user)
     return user
 

@@ -20,7 +20,9 @@ create table if not exists public.users (
   role varchar(20) not null default 'student',
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
-  constraint users_role_check check (role in ('admin', 'student'))
+  constraint users_role_check check (
+    role in ('admin', 'manager', 'engineer', 'operator', 'observer', 'student')
+  )
 );
 
 create index if not exists ix_users_email on public.users (email);
