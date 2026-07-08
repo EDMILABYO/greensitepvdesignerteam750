@@ -216,9 +216,7 @@ export function DashboardPage() {
       <section className="dashboard-hero">
         <div className="dashboard-hero__intro">
           <span className="hero-panel__eyebrow">Vue generale</span>
-          <h2>
-            Bienvenue, {user?.full_name || 'Administrateur'} <span>👋</span>
-          </h2>
+          <h2>Bienvenue, {user?.full_name || 'Administrateur'}</h2>
           <p>
             Pilotez les projets solaires telecom avec une lecture plus claire des sites, des
             simulations et des verdicts de faisabilite.
